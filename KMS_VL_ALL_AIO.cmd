@@ -168,6 +168,7 @@ if %_Debug% EQU 0 (
 @exit /b
 
 :Begin
+if %_Debug% EQU 1 if defined _args echo %_args%
 set "IFEO=HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options"
 set "OSPP=SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform"
 set "SPPk=SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform"
