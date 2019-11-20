@@ -486,34 +486,41 @@ exit /b
 :sppoff
 set _sC2R=sppoff
 set _fC2R=ReturnSPP
-set spp_off15=0&set spp_off16=0&set spp_off19=0
+set vol_off15=0&set vol_off16=0&set vol_off19=0
 wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name > "!_temp!\sppchk.txt" 2>&1
-find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (set spp_off15=1)
-find /i "Office 16" "!_temp!\sppchk.txt" %_Nul1% && (set spp_off16=1)
-find /i "Office 19" "!_temp!\sppchk.txt" %_Nul1% && (set spp_off19=1)
-for %%A in (15,16,19) do if !loc_off%%A! EQU 0 set spp_off%%A=0
+find /i "Office 19" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off19=1)
+find /i "Office 16" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off16=1)
+find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off15=1)
+for %%A in (15,16,19) do if !loc_off%%A! EQU 0 set vol_off%%A=0
+if %vol_off16% EQU 1 wmic path %_spp% where (ApplicationID='%_oApp%') get LicenseFamily %_Nul2% | find /i "Office16MondoVL_KMS_Client" %_Nul1% && (
+wmic path %_spp% where 'ApplicationID="%_oApp%" AND LicenseFamily like "Office16O365%%"' get LicenseFamily %_Nul2% | find /i "O365" %_Nul1% || (set vol_off16=0)
+)
+if %vol_off15% EQU 1 wmic path %_spp% where (ApplicationID='%_oApp%') get LicenseFamily %_Nul2% | find /i "OfficeMondoVL_KMS_Client" %_Nul1% && (
+wmic path %_spp% where 'ApplicationID="%_oApp%" AND LicenseFamily like "OfficeO365%%"' get LicenseFamily %_Nul2% | find /i "O365" %_Nul1% || (set vol_off15=0)
+)
 set loc_offgl=1
-if %loc_off15% EQU 0 if %loc_off16% EQU 0 if %loc_off19% EQU 0 (set loc_offgl=0)
+if %loc_off19% EQU 0 if %loc_off16% EQU 0 if %loc_off15% EQU 0 (set loc_offgl=0)
 if %loc_offgl% EQU 1 set Off1ce=1
-set spp_offgl=1
-if %spp_off15% EQU 0 if %spp_off16% EQU 0 if %spp_off19% EQU 0 (set spp_offgl=0)
+set vol_offgl=1
+if %vol_off19% EQU 0 if %vol_off16% EQU 0 if %vol_off15% EQU 0 (set vol_offgl=0)
 :: mixed Volume + Retail scenario
-if %loc_off15% EQU 1 if %spp_off15% EQU 0 if %RunR2V% EQU 0 goto :C2RR2V
-if %loc_off16% EQU 1 if %spp_off16% EQU 0 if %RunR2V% EQU 0 goto :C2RR2V
-if %loc_off19% EQU 1 if %spp_off19% EQU 0 if %RunR2V% EQU 0 goto :C2RR2V
+if %loc_off19% EQU 1 if %vol_off19% EQU 0 if %RunR2V% EQU 0 goto :C2RR2V
+if %winbuild% GTR 9600 if %loc_off16% EQU 1 if %vol_off16% EQU 0 if %RunR2V% EQU 0 goto :C2RR2V
+if %winbuild% LEQ 9600 if %loc_off16% EQU 1 if %vol_off16% EQU 0 if %vol_off19% EQU 0 if %RunR2V% EQU 0 goto :C2RR2V
+if %loc_off15% EQU 1 if %vol_off15% EQU 0 if %RunR2V% EQU 0 goto :C2RR2V
 :: all Volume scenario
-if %spp_offgl% EQU 1 exit /b
+if %vol_offgl% EQU 1 exit /b
 set Off1ce=0
 :: nothing installed scenario
 if %loc_offgl% EQU 0 (echo.&echo No Installed Office 2013/2016/2019 Product Detected...&exit /b)
 :: Retail C2R scenario
 if %RunR2V% EQU 0 goto :C2RR2V
 :ReturnSPP
-echo.
 :: Retail MSI scenario or failed C2R-R2V scenario
-if %loc_off15% EQU 1 if %spp_off15% EQU 0 echo Detected Office 2013 %nKMS%
-if %loc_off16% EQU 1 if %spp_off16% EQU 0 echo Detected Office 2016 %nKMS%
-if %loc_off19% EQU 1 if %spp_off19% EQU 0 echo Detected Office 2019 %nKMS%
+echo.
+if %loc_off15% EQU 1 if %vol_off15% EQU 0 echo Detected Office 2013 %nKMS%
+if %loc_off16% EQU 1 if %vol_off16% EQU 0 echo Detected Office 2016 %nKMS%
+if %loc_off19% EQU 1 if %vol_off19% EQU 0 echo Detected Office 2019 %nKMS%
 echo Retail Products need to be converted to Volume first.
 exit /b
 
@@ -625,31 +632,42 @@ exit /b
 :win7off
 set _sC2R=win7off
 set _fC2R=ReturnOSPP
-set spp_off14=0&set spp_off15=0&set spp_off16=0&set spp_off19=0
+set vol_off14=0&set vol_off15=0&set vol_off16=0&set vol_off19=0
 wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name > "!_temp!\sppchk.txt" 2>&1
-find /i "Office 14" "!_temp!\sppchk.txt" %_Nul1% && (set spp_off14=1)
-find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (set spp_off15=1)
-find /i "Office 16" "!_temp!\sppchk.txt" %_Nul1% && (set spp_off16=1)
-find /i "Office 19" "!_temp!\sppchk.txt" %_Nul1% && (set spp_off19=1)
-for %%A in (14,15,16,19) do if !loc_off%%A! EQU 0 set spp_off%%A=0
+find /i "Office 19" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off19=1)
+find /i "Office 16" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off16=1)
+find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off15=1)
+find /i "Office 14" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off14=1)
+for %%A in (14,15,16,19) do if !loc_off%%A! EQU 0 set vol_off%%A=0
+if %vol_off16% EQU 1 wmic path %_spp% where (ApplicationID='%_oApp%') get LicenseFamily %_Nul2% | find /i "Office16MondoVL_KMS_Client" %_Nul1% && (
+wmic path %_spp% where 'ApplicationID="%_oApp%" AND LicenseFamily like "Office16O365%%"' get LicenseFamily %_Nul2% | find /i "O365" %_Nul1% || (set vol_off16=0)
+)
+if %vol_off15% EQU 1 wmic path %_spp% where (ApplicationID='%_oApp%') get LicenseFamily %_Nul2% | find /i "OfficeMondoVL_KMS_Client" %_Nul1% && (
+wmic path %_spp% where 'ApplicationID="%_oApp%" AND LicenseFamily like "OfficeO365%%"' get LicenseFamily %_Nul2% | find /i "O365" %_Nul1% || (set vol_off15=0)
+)
 set loc_offgl=1
-if %loc_off14% EQU 0 if %loc_off15% EQU 0 if %loc_off16% EQU 0 if %loc_off19% EQU 0 (set loc_offgl=0)
+if %loc_off19% EQU 0 if %loc_off16% EQU 0 if %loc_off15% EQU 0 if %loc_off14% EQU 0 (set loc_offgl=0)
 if %loc_offgl% EQU 1 set Off1ce=1
-set spp_offgl=1
-if %spp_off14% EQU 0 if %spp_off15% EQU 0 if %spp_off16% EQU 0 if %spp_off19% EQU 0 (set spp_offgl=0)
-if %loc_off15% EQU 1 if %spp_off15% EQU 0 if %RunR2V% EQU 0 goto :C2RR2V
-if %loc_off16% EQU 1 if %spp_off16% EQU 0 if %RunR2V% EQU 0 goto :C2RR2V
-if %loc_off19% EQU 1 if %spp_off19% EQU 0 if %RunR2V% EQU 0 goto :C2RR2V
-if %spp_offgl% EQU 1 exit /b
+set vol_offgl=1
+:: mixed Volume + Retail scenario
+if %vol_off19% EQU 0 if %vol_off16% EQU 0 if %vol_off15% EQU 0 if %vol_off14% EQU 0 (set vol_offgl=0)
+if %loc_off19% EQU 1 if %vol_off19% EQU 0 if %RunR2V% EQU 0 goto :C2RR2V
+if %loc_off16% EQU 1 if %vol_off16% EQU 0 if %vol_off19% EQU 0 if %RunR2V% EQU 0 goto :C2RR2V
+if %loc_off15% EQU 1 if %vol_off15% EQU 0 if %RunR2V% EQU 0 goto :C2RR2V
+:: all Volume scenario
+if %vol_offgl% EQU 1 exit /b
 set Off1ce=0
+:: nothing installed scenario
 if %loc_offgl% EQU 0 (echo.&echo No Installed Office %aword% Product Detected...&exit /b)
+:: Retail C2R scenario
 if %RunR2V% EQU 0 goto :C2RR2V
 :ReturnOSPP
+:: Retail MSI scenario or failed C2R-R2V scenario
 echo.
-if %loc_off14% EQU 1 if %spp_off14% EQU 0 echo Detected Office 2010 %nKMS%
-if %loc_off15% EQU 1 if %spp_off15% EQU 0 echo Detected Office 2013 %nKMS%
-if %loc_off16% EQU 1 if %spp_off16% EQU 0 echo Detected Office 2016 %nKMS%
-if %loc_off19% EQU 1 if %spp_off19% EQU 0 echo Detected Office 2019 %nKMS%
+if %loc_off14% EQU 1 if %vol_off14% EQU 0 echo Detected Office 2010 %nKMS%
+if %loc_off15% EQU 1 if %vol_off15% EQU 0 echo Detected Office 2013 %nKMS%
+if %loc_off16% EQU 1 if %vol_off16% EQU 0 echo Detected Office 2016 %nKMS%
+if %loc_off19% EQU 1 if %vol_off19% EQU 0 echo Detected Office 2019 %nKMS%
 echo Retail Products need to be converted to Volume first.
 exit /b
 
