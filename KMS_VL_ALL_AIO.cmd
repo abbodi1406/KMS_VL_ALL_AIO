@@ -75,7 +75,10 @@ if /i %PROCESSOR_ARCHITECTURE%==x86 (if not defined PROCESSOR_ARCHITEW6432 (
   )
 )
 
-:: @WindowsAddict
+::  Check if the file path name contains special characters
+::  https://stackoverflow.com/a/33626625
+::  Written by @jeb (stackoverflow)
+::  Thanks to @WindowsAddict (MDL) for the help.
 setlocal DisableDelayedExpansion
 set "param=%~f0"
 cmd /v:on /c echo(^^!param^^!| findstr /R "[| ` ~ ! @ %% \^ & ( ) \[ \] { } + = ; ' , |]*^"
@@ -92,8 +95,25 @@ pause >nul
 goto :eof
 )
 
+if not exist "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" goto :E_PS
+
 1>nul 2>nul reg query HKU\S-1-5-19 && goto :Passed
-(1>nul 2>nul cscript //NoLogo "%~f0?.wsf" //job:ELAV /File:"%~f0" %*) && (exit /b) || (goto :E_Admin)
+
+set "_PSarg="""%~f0""" "
+if defined _args (
+set "_PSarg="""%~f0""" %_args:"="""%"
+)
+
+(1>nul 2>nul cscript //NoLogo "%~f0?.wsf" //job:ELAV /File:"%~f0" %*) && (
+  exit /b
+  ) || (
+  call setlocal EnableDelayedExpansion
+  1>nul 2>nul powershell -noprofile -exec bypass Start-Process -FilePath 'cmd.exe' -ArgumentList '/c \"!_PSarg!\"' -Verb RunAs && (
+    exit /b
+    ) || (
+    goto :E_Admin
+  )
+)
 
 :Passed
 if %Silent% EQU 1 (
@@ -180,7 +200,7 @@ for /f "tokens=2 delims==" %%# in ('findstr /i /b /c:"set KMS_ActivationInterval
 
 if %_Debug% EQU 1 if not defined fAUR set fAUR=0&set External=0
 if %Unattend% EQU 1 if not defined fAUR set fAUR=0&set External=0
-if not defined fAUR goto :MainMenu
+if not defined fAUR goto :cmdUI
 set Unattend=1
 set AUR=0
 if exist %_Hook% dir /b /al %_Hook% %_Nul3% || (
@@ -190,11 +210,18 @@ if exist %_Hook% dir /b /al %_Hook% %_Nul3% || (
 if %fAUR% EQU 1 set AUR=1&set _verb=1&set _rtr=DoActivate&cls&goto :InstallHook
 cls&goto :DoActivate
 
+:cmdUI
+::  Set buffer height independently of window height
+::  https://stackoverflow.com/a/13351373
+::  Written by @dbenham (stackoverflow)
+mode con cols=98 lines=35
+%_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.width=98;$B.height=300;$W.buffersize=$B;}"
+if %errorlevel% NEQ 0 goto :E_PS
+
 :MainMenu
 cls
 color 07
 title KMS_VL_ALL
-rem if %Silent% EQU 0 if %_Debug% EQU 0 mode con cols=98 lines=28
 set AUR=0
 set _dMode=Manual
 if exist %_Hook% dir /b /al %_Hook% %_Nul3% || (
@@ -204,34 +231,41 @@ if exist %_Hook% dir /b /al %_Hook% %_Nul3% || (
 if %ActWindows% EQU 0 if %ActOffice% EQU 0 set ActWindows=1
 if %ActWindows% EQU 0 (set _dAwin=No) else (set _dAwin=Yes)
 if %ActOffice% EQU 0 (set _dAoff=No) else (set _dAoff=Yes)
-if %AUR% EQU 0 (set _dHook=Install) else (set _dHook=Remove)
 if %SkipKMS38% EQU 0 (set _dWXKMS=No) else (set _dWXKMS=Yes)
+if %AUR% EQU 0 (set _dHook=Not Installed) else (set _dHook=Already Installed)
+set _ckc=
+if %AUR% EQU 0 (
+set _ckc=1
+) else (
+reg query "HKLM\%SPPk%" /v KeyManagementServiceName /s %_Nul2% | findstr 172.16.0.2 %_Nul1% || set _ckc=1
+if %OSType% EQU Win8 reg query "HKU\S-1-5-20\%SPPk%" /v DiscoveredKeyManagementServiceIpAddress /s %_Nul2% | findstr 172.16.0.2 %_Nul1% || set _ckc=1
+if %OSType% EQU Win7 reg query "HKLM\%OSPP%" /v KeyManagementServiceName /s %_Nul2% | findstr 172.16.0.2 %_Nul1% || set _ckc=1
+)
 set _el=
-mode con cols=98 lines=35
-%_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.width=98;$B.height=300;$W.buffersize=$B;}"
 echo.
 echo %line3%
 echo.
 echo      1. Activate: [%_dMode%] Mode
 echo.
-echo      2. %_dHook% Auto Renewal Support
+echo      2. Install Auto Renewal    [%_dHook%]
+echo      3. Complete Uninstall
 echo %line4%
 echo.
-echo      3. Check and activate Windows [%_dAwin%}
+echo            Configuration:
 echo.
-echo      4. Check and activate Office [%_dAoff%}
-
-if %winbuild% GEQ 10240 echo.&echo      5. Skip Windows 10 KMS38 [%_dWXKMS%]
+echo      3. Process Windows         [%_dAwin%]
+echo      4. Process Office          [%_dAoff%]
+if %winbuild% GEQ 10240 echo      5. Skip Windows 10 KMS38   [%_dWXKMS%]
 echo %line4%
+echo.
+echo            Miscellaneous:
 echo.
 echo      6. Check Activation Status [slmgr.vbs / ospp.vbs]
-echo.
 echo      7. Check Activation Status [wmic]
+if defined _ckc echo      8. Clear KMS Cache
 echo %line4%
 echo.
-echo      9. Activate: External Mode
-
-if %AUR% EQU 0 echo.&echo      8. Clear KMS Cache
+echo      9. Activate: [External] Mode
 echo %line3%
 echo.
 choice /c 1234567890 /n /m "> Choose a menu option, or press 0 to quit: "
@@ -790,9 +824,6 @@ if %_verb% EQU 1 (
 echo.
 echo Installing Local KMS Emulator...
 )
-if not exist "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" goto :E_PS
-rem %_Nul3% powershell -noprofile -exec bypass -c "dir $env:SystemDrive"
-rem if %errorlevel% NEQ 0 goto :E_PS
 if %winbuild% GEQ 9600 (
   WMIC /NAMESPACE:\\root\Microsoft\Windows\Defender PATH MSFT_MpPreference call Add ExclusionPath="%SystemRoot%\System32\SppExtComObjHook.dll" %_Nul3% && set "AddExc= and Windows Defender exclusion"
 )
@@ -924,7 +955,7 @@ goto :eof
 if not "%1"=="" (
 set spp=%1
 set sps=%2
-for /f "tokens=2 delims==" %%A in ('"wmic path !sps! get Version /VALUE"') do set ver=%%A
+for /f "tokens=2 delims==" %%A in ('"wmic path %2 get Version /VALUE"') do set ver=%%A
 )
 wmic path %sps% where version='%ver%' call ClearKeyManagementServiceMachine
 wmic path %sps% where version='%ver%' call ClearKeyManagementServicePort
@@ -2277,7 +2308,7 @@ goto :eof
 
 :E_PS
 echo %_err%
-echo Windows PowerShell is not working or not installed.
+echo Windows PowerShell is required for this script to function.
 goto :TheEnd
 
 :E_DLL
