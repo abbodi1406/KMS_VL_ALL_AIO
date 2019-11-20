@@ -1,29 +1,28 @@
 <!-- : Begin batch script
 @echo off
-:: change to 1 to enable debug mode
-set _Debug=0
-
 :: ### Configuration Options ###
 
-:: change to 0 to turn OFF Windows or Office activation via the script
-:: note: this is not effective if Windows and/or Office installation is already Volume (GVLK installed)
+:: change to 1 to enable debug mode (you can also use it with unattend options)
+set _Debug=0
+
+:: change to 0 to turn OFF Windows or Office activation processing via the script
 set ActWindows=1
 set ActOffice=1
 
 :: change to 0 to revert Windows 10 KMS38 to normal KMS
 set SkipKMS38=1
 
-:: ### Unattended Options ###
+:: ### Unattend Options ###
 
-:: change External to 1 and set KMS_IP address to activate via external KMS server unattended
+:: change to 1 and set KMS_IP address to activate via external KMS server unattended
 set External=0
 set KMS_IP=172.16.0.2
 
-:: change to 1 to run AutoRenewal activation mode unattended
-set uAutoRenewal=0
-
 :: change to 1 to run Manual activation mode unattended
 set uManual=0
+
+:: change to 1 to run AutoRenewal activation mode unattended
+set uAutoRenewal=0
 
 :: change to 1 to suppress any output
 set Silent=0
@@ -92,10 +91,6 @@ if /i %PROCESSOR_ARCHITECTURE%==x86 (if not defined PROCESSOR_ARCHITEW6432 (
   )
 )
 
-::  Check if the file path name contains special characters
-::  https://stackoverflow.com/a/33626625
-::  Written by @jeb (stackoverflow)
-::  Thanks to @WindowsAddict (MDL) for the help.
 setlocal DisableDelayedExpansion
 set "param=%~f0"
 cmd /v:on /c echo(^^!param^^!| findstr /R "[| ` ~ ! @ %% \^ & ( ) \[ \] { } + = ; ' , |]*^"
@@ -133,14 +128,9 @@ set "_PSarg="""%~f0""" %_args:"="""%"
 )
 
 :Passed
-if %Silent% EQU 1 (
-set Unattend=1
-)
+if %Silent% EQU 1 set Unattend=1
 set "_run=nul"
-if %Logger% EQU 1 (
-set _run="%~dpn0_Silent.log"
-)
-
+if %Logger% EQU 1 set _run="%~dpn0_Silent.log"
 set "_temp=%SystemRoot%\Temp"
 set "_log=%~dpn0"
 set "_work=%~dp0"
@@ -337,11 +327,11 @@ if %AUR% EQU 0 (color 1F&set "mode=Manual") else (color 07&set "mode=Auto Renewa
 if %Unattend% EQU 0 (
 if %_Debug% EQU 0 (title KMS_VL_ALL) else (title KMS_VL_ALL %mode%)
 )
-if %winbuild% GEQ 9600 (
-  reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\CurrentVersion\Software Protection Platform" /f /v NoGenTicket /t REG_DWORD /d 1 %_Nul3%
-)
 if %Silent% EQU 0 if %_Debug% EQU 0 (
 %_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.height=300;$W.buffersize=$B;}"
+)
+if %winbuild% GEQ 9600 (
+  reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\CurrentVersion\Software Protection Platform" /f /v NoGenTicket /t REG_DWORD /d 1 %_Nul3%
 )
 echo.
 echo Activation Mode: %mode%
@@ -360,7 +350,6 @@ call :UpdateOSPPEntry osppsvc.exe
 
 SET Win10Gov=0
 IF %winbuild% LSS 14393 if %SSppHook% NEQ 0 GOTO :Main
-
 SET "EditionWMI="
 SET "RegKey=HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages"
 SET "Pattern=Microsoft-Windows-*Edition~31bf3856ad364e35"
@@ -385,7 +374,7 @@ FOR %%A IN (Cloud,CloudN,IoTEnterprise,IoTEnterpriseS,ProfessionalSingleLanguage
 SET "EditionID=%EditionWMI%"
 
 :Main
-IF NOT DEFINED EditionID FOR %%A IN (EnterpriseG,EnterpriseGN) DO (IF /I "%EditionID%"=="%%A" SET Win10Gov=1)
+IF DEFINED EditionID FOR %%A IN (EnterpriseG,EnterpriseGN) DO (IF /I "%EditionID%"=="%%A" SET Win10Gov=1)
 reg query HKLM\SOFTWARE\Microsoft\Office\ClickToRun\Configuration /v ProductReleaseIds %_Nul3% && set "_C2R=HKLM\SOFTWARE\Microsoft\Office\ClickToRun\Configuration"
 if not defined _C2R reg query HKLM\SOFTWARE\WOW6432Node\Microsoft\Office\ClickToRun\Configuration /v ProductReleaseIds %_Nul3% && set "_C2R=HKLM\SOFTWARE\WOW6432Node\Microsoft\Office\ClickToRun\Configuration"
 for %%A in (14,15,16,19) do call :officeLoc %%A
@@ -497,6 +486,7 @@ b71515d9-89a2-4c60-88c8-656fbcca7f3a,af43f7f0-3b1e-4266-a123-1fdb53f4323b,075aca
 if /i '%app%' EQU '%%A' exit /b
 )
 if not defined EditionID (call :winchk&exit /b)
+if %winbuild% LSS 14393 (call :winchk&exit /b)
 if /i '%app%' EQU '0df4f814-3f57-4b8b-9a9d-fddadcd69fac' if /i %EditionID% NEQ CloudE exit /b
 if /i '%app%' EQU 'e0c42288-980c-4788-a014-c080d2e1926e' if /i %EditionID% NEQ Education exit /b
 if /i '%app%' EQU '73111121-5638-40f6-bc11-f1d7b0d64300' if /i %EditionID% NEQ Enterprise exit /b
@@ -1058,7 +1048,7 @@ goto :eof
 :CreateOEM
 cls
 echo.
-echo Creating $OEM$ Folder...
+echo $OEM$ Folder Created...
 echo.
 set "_oem=!_work!"
 copy /y nul "!_work!\#.rw" 1>nul 2>nul && (if exist "!_work!\#.rw" del /f /q "!_work!\#.rw") || (set "_oem=%SystemDrive%\Users\Public\Desktop")
