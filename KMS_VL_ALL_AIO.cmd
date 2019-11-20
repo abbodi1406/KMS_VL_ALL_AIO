@@ -240,7 +240,7 @@ cls&goto :DoActivate
 
 :MainMenu
 cls
-mode con cols=80 lines=35
+mode con cols=80 lines=30
 color 07
 title KMS_VL_ALL %uivr%
 set _dMode=Manual
@@ -267,45 +267,44 @@ set _el=
 echo.
 echo %line3%
 echo.
-echo     [1] Activate:               [%_dMode% Mode]
+echo     [1] Activate                [%_dMode% Mode]
 echo.
 echo     [2] Install Auto Renewal    [%_dHook%]
 echo     [3] Uninstall Completely
+echo.
+echo     [4] Activate                [External Mode]
 echo %line4%
 echo.
 echo             Configuration:
 echo.
-echo     [D] Enable Debug Mode       [%_dDbg%]
-echo     [4] Process Windows         [%_dAwin%]
-echo     [5] Process Office          [%_dAoff%]
+echo     [5] Enable Debug Mode       [%_dDbg%]
+echo     [6] Process Windows         [%_dAwin%]
+echo     [7] Process Office          [%_dAoff%]
 if %winbuild% GEQ 10240 echo     [X] Skip Windows 10 KMS38   [%_dWXKMS%]
 echo %line4%
 echo.
 echo             Miscellaneous:
 echo.
-echo     [6] Check Activation Status [vbs]
-echo     [7] Check Activation Status [wmic]
-if defined _ckc echo     [8] Clear KMS Cache
+echo     [8] Check Activation Status [vbs]
+echo     [9] Check Activation Status [wmic]
+if defined _ckc echo     [K] Clear KMS Cache
 echo     [R] Read Me
 echo     [S] Create $OEM$ Folder
-echo %line4%
-echo.
-echo     [9] Activate:               [External Mode]
 echo %line3%
 echo.
-choice /c 123456789DXRS0 /n /m "> Choose a menu option, or press 0 to Exit: "
+choice /c 123456789RSKX0 /n /m "> Choose a menu option, or press 0 to Exit: "
 set _el=%errorlevel%
 if %_el%==14 goto :eof
-if %_el%==13 (call :CreateOEM)&goto :MainMenu
-if %_el%==12 (call :CreateReadMe)&goto :MainMenu
-if %_el%==11 if %winbuild% GEQ 10240 (if %SkipKMS38% EQU 0 (set SkipKMS38=1) else (set SkipKMS38=0))&goto :MainMenu
-if %_el%==10 (if %_Debug% EQU 0 (set _Debug=1) else (set _Debug=0))&goto :MainMenu
-if %_el%==9 goto :E_IP
-if %_el%==8 if defined _ckc (set _verb=0&cls&goto :cCache)
-if %_el%==7 (call :casWm)&goto :MainMenu
-if %_el%==6 (call :casVm)&goto :MainMenu
-if %_el%==5 (if %ActOffice% EQU 0 (set ActOffice=1) else (set ActWindows=1&set ActOffice=0))&goto :MainMenu
-if %_el%==4 (if %ActWindows% EQU 0 (set ActWindows=1) else (set ActWindows=0&set ActOffice=1))&goto :MainMenu
+if %_el%==13 if %winbuild% GEQ 10240 (if %SkipKMS38% EQU 0 (set SkipKMS38=1) else (set SkipKMS38=0))&goto :MainMenu
+if %_el%==12 if defined _ckc (set _verb=0&cls&goto :cCache)
+if %_el%==11 (call :CreateOEM)&goto :MainMenu
+if %_el%==10 (call :CreateReadMe)&goto :MainMenu
+if %_el%==9 (call :casWm)&goto :MainMenu
+if %_el%==8 (call :casVm)&goto :MainMenu
+if %_el%==7 (if %ActOffice% EQU 0 (set ActOffice=1) else (set ActWindows=1&set ActOffice=0))&goto :MainMenu
+if %_el%==6 (if %ActWindows% EQU 0 (set ActWindows=1) else (set ActWindows=0&set ActOffice=1))&goto :MainMenu
+if %_el%==5 (if %_Debug% EQU 0 (set _Debug=1) else (set _Debug=0))&goto :MainMenu
+if %_el%==4 goto :E_IP
 if %_el%==3 (if %_dDbg%==No (set _verb=1&cls&call :RemoveHook&goto :cCache) else (set _verb=1&cls&goto :RemoveHook))
 if %_el%==2 (if %AUR% EQU 0 (set AUR=1&set _verb=1&set _rtr=DoActivate&cls&goto :InstallHook) else (set _verb=0&set _rtr=DoActivate&cls&goto :InstallHook))
 if %_el%==1 (cls&goto :DoActivate)
@@ -884,7 +883,7 @@ goto :DoDebug
 )
 if %_verb% EQU 1 (
 if %Silent% EQU 0 if %_Debug% EQU 0 (
-mode con cols=100 lines=35
+mode con cols=100 lines=30
 %_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.height=300;$W.buffersize=$B;}"
 )
 echo.
@@ -946,7 +945,7 @@ if %winbuild% GEQ 9600 (
 )
 if %_verb% EQU 1 (
 if %Silent% EQU 0 if %_Debug% EQU 0 (
-mode con cols=100 lines=35
+mode con cols=100 lines=30
 )
 echo.
 echo Uninstalling Local KMS Emulator...
@@ -1136,7 +1135,7 @@ goto :eof
 
 :casVm
 cls
-mode con cols=100 lines=35
+mode con cols=100 lines=30
 %_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.height=300;$W.buffersize=$B;}"
 setlocal EnableDelayedExpansion
 echo %line2%
@@ -1264,7 +1263,7 @@ goto :eof
 
 :casWm
 cls
-mode con cols=100 lines=35
+mode con cols=100 lines=30
 %_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.height=300;$W.buffersize=$B;}"
 setlocal
 set wspp=SoftwareLicensingProduct
