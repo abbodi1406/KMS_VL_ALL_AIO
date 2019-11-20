@@ -140,6 +140,9 @@ set "_temp=%SystemRoot%\Temp"
 set "_log=%~dpn0"
 set "_work=%~dp0"
 if "%_work:~-1%"=="\" set "_work=%_work:~0,-1%"
+for /f "tokens=2*" %%a in ('reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" /v Desktop') do call set "_dsk=%%b"
+if exist "%SystemDrive%\Users\Public\Desktop\desktop.ini" set "_dsk=%SystemDrive%\Users\Public\Desktop"
+set "_suf="
 setlocal EnableDelayedExpansion
 
 if %_Debug% EQU 0 (
@@ -149,7 +152,7 @@ if %_Debug% EQU 0 (
   set "_Nul3=1>nul 2>nul"
   set "_Pause=pause >nul"
   if %Unattend% EQU 1 set "_Pause="
-  if %Silent% EQU 0 (goto :Begin) else (call :Begin >!_run! 2>&1)
+  if %Silent% EQU 0 (call :Begin) else (call :Begin >!_run! 2>&1)
 ) else (
   set "_Nul1="
   set "_Nul2="
@@ -159,12 +162,16 @@ if %_Debug% EQU 0 (
   if %Silent% EQU 0 (
   echo.
   echo Running in Debug Mode...
-  echo The window will be closed when finished
+  if not defined _args (echo The window will be closed when finished) else (echo please wait...)
   )
-  copy /y nul "!_work!\#.rw" 1>nul 2>nul && (if exist "!_work!\#.rw" del /f /q "!_work!\#.rw") || (set "_log=!_temp!\%~n0")
+  copy /y nul "!_work!\#.rw" 1>nul 2>nul && (if exist "!_work!\#.rw" del /f /q "!_work!\#.rw") || (set "_log=!_dsk!\%~n0")
+  if exist "!_log!_Debug.log" (
+  for /f "tokens=2 delims==." %%# in ('wmic os get localdatetime /value') do set "_date=%%#"
+  set "_suf=_!_date:~8,6!"
+  )
   @echo on
   @prompt $G
-  @call :Begin >"!_log!.tmp" 2>&1 &cmd /u /c type "!_log!.tmp">"!_log!_Debug.log"&del "!_log!.tmp"
+  @call :Begin >"!_log!_tmp.log" 2>&1 &cmd /u /c type "!_log!_tmp.log">"!_log!_Debug!_suf!.log"&del "!_log!_tmp.log"
 )
 @color 07
 @title %ComSpec%
@@ -257,7 +264,7 @@ set _el=
 echo.
 echo %line3%
 echo.
-echo     [1] Activate: [%_dMode%] Mode
+echo     [1] Activate:               [%_dMode% Mode]
 echo.
 echo     [2] Install Auto Renewal    [%_dHook%]
 echo     [3] Uninstall Completely
@@ -280,7 +287,7 @@ echo     [R] Read Me
 echo     [S] Create $OEM$ Folder
 echo %line4%
 echo.
-echo     [9] Activate: [External] Mode
+echo     [9] Activate:               [External Mode]
 echo %line3%
 echo.
 choice /c 123456789DXRS0 /n /m "> Choose a menu option, or press 0 to Exit: "
@@ -1088,7 +1095,7 @@ echo.
 echo $OEM$ Folder Created...
 echo.
 set "_oem=!_work!"
-copy /y nul "!_work!\#.rw" 1>nul 2>nul && (if exist "!_work!\#.rw" del /f /q "!_work!\#.rw") || (set "_oem=%SystemDrive%\Users\Public\Desktop")
+copy /y nul "!_work!\#.rw" 1>nul 2>nul && (if exist "!_work!\#.rw" del /f /q "!_work!\#.rw") || (set "_oem=!_dsk!")
 echo "!_oem!\$OEM$"
 if not exist "!_oem!\$OEM$\$$\Setup\Scripts\KMS_VL_ALL_AIO.cmd" mkdir ""!_oem!\$OEM$\$$\Setup\Scripts"
 copy /y "%~f0" "!_oem!\$OEM$\$$\Setup\Scripts\KMS_VL_ALL_AIO.cmd" %_Nul3%
@@ -2950,6 +2957,10 @@ setlocal
 call "%~f0" !_para!
 endlocal
 set _dDbg=Yes
+echo.
+echo Done.
+echo Press any key to continue...
+pause >nul
 goto :MainMenu
 
 :E_Admin
