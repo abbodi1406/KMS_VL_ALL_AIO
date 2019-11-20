@@ -23,7 +23,7 @@ set KMS_RenewalInterval=10080
 :: change KMS reattempt schedule for failed activation or unactivated, range in minutes: from 15 to 43200
 set KMS_ActivationInterval=120
 
-:: change Hardware Hash for local KMS emulator server (only affect Windows 8.1 and 10)
+:: change Hardware Hash for KMS emulator server (only affect Windows 8.1 and 10)
 set KMS_HWID=0x3A1C049600B60076
 
 :: change KMS TCP port
@@ -38,9 +38,7 @@ set Unattend=0
 set Silent=0
 set Logger=0
 
-:: Ascii85 - res2batch.bat
-:: https://github.com/AveYo/Compressed2TXT
-
+set fAUR=
 set "_args=%*"
 if not defined _args goto :NoProgArgs
 set _args=%_args:"=%
@@ -57,6 +55,7 @@ if /i "%%A"=="/d" (set _Debug=1
 ) else if /i "%%A"=="/a" (set fAUR=1&set External=0
 ) else (set "KMS_IP=%%A")
 )
+if defined fAUR set Unattend=1
 
 :NoProgArgs
 set "SysPath=%SystemRoot%\System32"
@@ -170,8 +169,17 @@ call :StopService sppsvc
 )
 set _uRI=
 set _uAI=
-for /f "tokens=2 delims==" %%# in ('findstr /i /c:"set KMS_RenewalInterval" "%~f0"') do if not defined _uRI set _uRI=%%#
-for /f "tokens=2 delims==" %%# in ('findstr /i /c:"set KMS_ActivationInterval" "%~f0"') do if not defined _uAI set _uAI=%%#
+for /f "tokens=2 delims==" %%# in ('findstr /i /b /c:"set KMS_RenewalInterval" "%~f0"') do if not defined _uRI set _uRI=%%#
+for /f "tokens=2 delims==" %%# in ('findstr /i /b /c:"set KMS_ActivationInterval" "%~f0"') do if not defined _uAI set _uAI=%%#
+if not defined fAUR goto :MainMenu
+set Unattend=1
+set AUR=0
+if exist %_Hook% dir /b /al %_Hook% %_Nul3% || (
+  reg query "%IFEO%\%SppVer%" /v KMS_Emulation %_Nul3% && set AUR=1
+  reg query "%IFEO%\osppsvc.exe" /v KMS_Emulation %_Nul3% && set AUR=1
+)
+if %fAUR% EQU 1 set AUR=1&set _verb=1&set _rtr=DoActivate&cls&goto :InstallHook
+cls&goto :DoActivate
 
 :MainMenu
 cls
@@ -188,12 +196,13 @@ if %ActWindows% EQU 0 if %ActOffice% EQU 0 set ActWindows=1
 if %ActWindows% EQU 0 (set _dAwin=No) else (set _dAwin=Yes)
 if %ActOffice% EQU 0 (set _dAoff=No) else (set _dAoff=Yes)
 if %AUR% EQU 0 (set _dHook=Install) else (set _dHook=Remove)
+if %SkipKMS38% EQU 0 (set _dWXKMS=No) else (set _dWXKMS=Yes)
 set _el=
 echo %line1%
 echo.
 echo 1. Activate: %_dMode% Mode
 echo.
-echo 2. Auto Renewal Setup: %_dHook%
+echo 2. %_dHook% Auto Renewal Support
 echo.
 echo 3. Check and activate Windows {%_dAwin%}
 echo.
@@ -218,7 +227,7 @@ if %_el%==9 goto :E_IP
 if %_el%==8 if %AUR% EQU 0 (cls&call :cCache)&goto :MainMenu
 if %_el%==7 (call :casWm)&goto :MainMenu
 if %_el%==6 (call :casVm)&goto :MainMenu
-if %_el%==5 if %winbuild% GEQ 10240 (if %SkipKMS38% EQU 0 (set SkipKMS38=1&set _dWXKMS=Yes) else (set SkipKMS38=0&set _dWXKMS=No))&goto :MainMenu
+if %_el%==5 if %winbuild% GEQ 10240 (if %SkipKMS38% EQU 0 (set SkipKMS38=1) else (set SkipKMS38=0))&goto :MainMenu
 if %_el%==4 (if %ActOffice% EQU 0 (set ActOffice=1) else (set ActWindows=1&set ActOffice=0))&goto :MainMenu
 if %_el%==3 (if %ActWindows% EQU 0 (set ActWindows=1) else (set ActWindows=0&set ActOffice=1))&goto :MainMenu
 if %_el%==2 (if %AUR% EQU 0 (set AUR=1&set _verb=1&set _rtr=DoActivate&cls&goto :InstallHook) else (set AUR=0&set _verb=1&cls&call :RemoveHook&call :cCache))&goto :MainMenu
@@ -284,6 +293,7 @@ call :UpdateOSPPEntry osppsvc.exe
 SET Win10Gov=0
 IF %winbuild% LSS 14393 GOTO :Main
 
+SET "EditionWMI="
 SET "RegKey=HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages"
 SET "Pattern=Microsoft-Windows-*Edition~31bf3856ad364e35"
 SET "EditionPKG=NUL"
@@ -325,9 +335,9 @@ if %AUR% EQU 0 call :RemoveHook
 sc start sppsvc trigger=timer;sessionid=0 %_Nul3%
 set External=0
 set KMS_IP=172.16.0.2
-echo.
 if %Unattend% NEQ 0 goto :TheEnd
-if %Unattend% EQU 0 echo Press any key to continue...
+echo.
+echo Press any key to continue...
 pause >nul
 goto :MainMenu
 
@@ -764,11 +774,11 @@ goto :eof
 :InstallHook
 if %_verb% EQU 1 (
 echo.
-echo Installing Local KMS Emulator
+echo Installing Local KMS Emulator...
 )
 if not exist "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" goto :E_PS
-%_Nul3% powershell -noprofile -exec bypass -c "dir $env:SystemDrive"
-if %errorlevel% NEQ 0 goto :E_PS
+rem %_Nul3% powershell -noprofile -exec bypass -c "dir $env:SystemDrive"
+rem if %errorlevel% NEQ 0 goto :E_PS
 if %winbuild% GEQ 9600 (
   WMIC /NAMESPACE:\\root\Microsoft\Windows\Defender PATH MSFT_MpPreference call Add ExclusionPath="%SystemRoot%\System32\SppExtComObjHook.dll" %_Nul3% && set "AddExc= and Windows Defender exclusion"
 )
@@ -790,8 +800,7 @@ echo Adding Registry Keys...
 )
 if %SSppHook% NEQ 0 call :CreateIFEOEntry %SppVer%
 if %AUR% EQU 1 (call :CreateIFEOEntry osppsvc.exe) else (if %OsppHook% NEQ 0 call :CreateIFEOEntry osppsvc.exe)
-if %AUR% EQU 1 if %OSType% EQU Win8 call :CreateTask
-if %AUR% EQU 1 if %OSType% EQU Win7 if %SSppHook% NEQ 0 (
+if %AUR% EQU 1 if %OSType% EQU Win7 (
 call :CreateIFEOEntry SppExtComObj.exe
 if not exist %w7inf% (
   if %_verb% EQU 1 (echo.&echo Adding migration fail-safe...&echo %w7inf%)
@@ -808,6 +817,7 @@ if not exist %w7inf% (
   )>%w7inf%
   )
 )
+if %AUR% EQU 1 if %OSType% EQU Win8 call :CreateTask
 goto :%_rtr%
 
 :RemoveHook
@@ -817,7 +827,7 @@ if %winbuild% GEQ 9600 (
 )
 if %_verb% EQU 1 (
 echo.
-echo Removing Local KMS Emulator
+echo Removing Local KMS Emulator...
 echo.
 echo Removing Files%RemExc%...
 )
