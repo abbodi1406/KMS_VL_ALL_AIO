@@ -63,7 +63,7 @@ set _batf=
 set _batp=
 set fAUR=
 set rAUR=
-set "_args=%*"
+set _args=%*
 if not defined _args goto :NoProgArgs
 
 set _args=%_args:"=%
@@ -86,8 +86,8 @@ if /i "%%A"=="-elevated" (set _elev=1
 
 :NoProgArgs
 if %External% EQU 1 (if "%KMS_IP%"=="172.16.0.2" (set fAUR=0&set External=0) else (set fAUR=0))
-if %uManual% EQU 1 (set fAUR=0&set External=0)
-if %uAutoRenewal% EQU 1 (set fAUR=1&set External=0)
+if %uManual% EQU 1 (set fAUR=0&set External=0&set uAutoRenewal=0)
+if %uAutoRenewal% EQU 1 (set fAUR=1&set External=0&set uManual=0)
 if defined fAUR set Unattend=1
 if defined rAUR set Unattend=1
 if %Silent% EQU 1 set Unattend=1
@@ -98,10 +98,10 @@ set "SysPath=%SystemRoot%\System32"
 if exist "%SystemRoot%\Sysnative\reg.exe" (set "SysPath=%SystemRoot%\Sysnative")
 set "Path=%SysPath%;%SystemRoot%;%SysPath%\Wbem;%SystemRoot%\System32\WindowsPowerShell\v1.0\"
 set "_err===== ERROR ===="
-set "_psc=powershell -noprofile -exec bypass -c"
+set "_psc=powershell -nop -ep bypass -c"
 set "_buf={$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.height=300;$W.buffersize=$B;}"
-set "xOS=amd64"
-set "xBit=amd64"
+set "xOS=x64"
+set "xBit=x64"
 set "_bit=64"
 set "_wow=1"
 if /i %PROCESSOR_ARCHITECTURE%==x86 (if not defined PROCESSOR_ARCHITEW6432 (
@@ -127,7 +127,7 @@ set _PSarg=%_PSarg:'=''%
   exit /b
   ) || (
   call setlocal EnableDelayedExpansion
-  1>nul 2>nul %SysPath%\WindowsPowerShell\v1.0\%_psc% "start cmd.exe -ArgumentList '/c \"!_PSarg!\"' -verb runas" && (
+  1>nul 2>nul %SysPath%\WindowsPowerShell\v1.0\%_psc% "start cmd.exe -Arg '/c \"!_PSarg!\"' -verb runas" && (
     exit /b
     ) || (
     goto :E_Admin
@@ -233,12 +233,8 @@ if %OSType% EQU Win8 reg query "%IFEO%\sppsvc.exe" %_Nul3% && (
 reg delete "%IFEO%\sppsvc.exe" /f %_Nul3%
 call :StopService sppsvc
 )
-set _uRI=
-set _uAI=
-for /f "tokens=2 delims==" %%# in ('findstr /i /b /c:"set KMS_RenewalInterval" "!_batf!" %_Nul6%') do if not defined _uRI set _uRI=%%#
-for /f "tokens=2 delims==" %%# in ('findstr /i /b /c:"set KMS_ActivationInterval" "!_batf!" %_Nul6%') do if not defined _uAI set _uAI=%%#
-if not defined _uRI set _uRI=10080
-if not defined _uAI set _uAI=120
+set _uRI=%KMS_RenewalInterval%
+set _uAI=%KMS_ActivationInterval%
 set _dDbg=No
 if %ActWindows% EQU 0 if %ActOffice% EQU 0 set ActWindows=1
 if %_Debug% EQU 1 if not defined fAUR set fAUR=0&set External=0
@@ -409,7 +405,7 @@ exit /b
 cls
 set kip=
 echo.
-echo Enter or Paste the external KMS Server address:
+echo Enter / Paste the external KMS Server address, or just press Enter to return:
 echo.
 set /p kip=
 if not defined kip goto :MainMenu
@@ -496,8 +492,8 @@ FOR /F "TOKENS=3 DELIMS=: " %%A IN ('DISM /English /Online /Get-CurrentEdition %
 )
 FOR /F "TOKENS=2 DELIMS==" %%A IN ('"WMIC PATH SoftwareLicensingProduct WHERE (ApplicationID='%_wApp%' AND PartialProductKey is not NULL) GET LicenseFamily /VALUE" %_Nul6%') DO IF NOT ERRORLEVEL 1 SET "EditionWMI=%%A"
 IF NOT DEFINED EditionWMI (
-IF %winbuild% GEQ 17063 FOR /F "SKIP=2 TOKENS=3 DELIMS= " %%A IN ('REG QUERY "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v EditionId') DO SET "EditionID=%%A"
-IF %winbuild% LSS 14393 FOR /F "SKIP=2 TOKENS=3 DELIMS= " %%A IN ('REG QUERY "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v EditionId') DO SET "EditionID=%%A"
+IF %winbuild% GEQ 17063 FOR /F "SKIP=2 TOKENS=2*" %%A IN ('REG QUERY "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v EditionId') DO SET "EditionID=%%B"
+IF %winbuild% LSS 14393 FOR /F "SKIP=2 TOKENS=2*" %%A IN ('REG QUERY "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v EditionId') DO SET "EditionID=%%B"
 GOTO :Main
 )
 FOR %%A IN (Cloud,CloudN,IoTEnterprise,IoTEnterpriseS,ProfessionalSingleLanguage,ProfessionalCountrySpecific) DO (IF /I "%EditionWMI%"=="%%A" GOTO :Main)
@@ -506,7 +502,7 @@ SET "EditionID=%EditionWMI%"
 :Main
 IF DEFINED EditionID FOR %%A IN (EnterpriseG,EnterpriseGN) DO (IF /I "%EditionID%"=="%%A" SET Win10Gov=1)
 if defined EditionID (set "_winos=Windows %EditionID% edition") else (set "_winos=Detected Windows")
-for /f "skip=2 tokens=2*" %%a in ('reg query "hklm\software\microsoft\Windows NT\currentversion" /v productname %_Nul6%') do if not errorlevel 1 set "_winos=%%b"
+for /f "skip=2 tokens=2*" %%a in ('reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v ProductName %_Nul6%') do if not errorlevel 1 set "_winos=%%b"
 set "nKMS=does not support KMS activation..."
 set "nEval=Evaluation Editions cannot be activated. Please install full Windows OS."
 if defined EditionID echo %EditionID%| findstr /I /E Eval %_Nul1% && (
@@ -514,11 +510,14 @@ set _eval=1
 echo %EditionID%| findstr /I /B Server %_Nul1% && (set "nEval=Server Evaluation cannot be activated. Please convert to full Server OS.")
 )
 set "_C16R="
+reg query HKLM\SOFTWARE\Microsoft\Office\ClickToRun /v InstallPath %_Nul3% && (
 reg query HKLM\SOFTWARE\Microsoft\Office\ClickToRun\Configuration /v ProductReleaseIds %_Nul3% && set "_C16R=HKLM\SOFTWARE\Microsoft\Office\ClickToRun\Configuration"
-if not defined _C16R reg query HKLM\SOFTWARE\WOW6432Node\Microsoft\Office\ClickToRun\Configuration /v ProductReleaseIds %_Nul3% && set "_C16R=HKLM\SOFTWARE\WOW6432Node\Microsoft\Office\ClickToRun\Configuration"
+)
 set "_C15R="
+reg query HKLM\SOFTWARE\Microsoft\Office\15.0\ClickToRun /v InstallPath %_Nul3% && (
 reg query HKLM\SOFTWARE\Microsoft\Office\15.0\ClickToRun\Configuration /v ProductReleaseIds %_Nul3% && set "_C15R=HKLM\SOFTWARE\Microsoft\Office\15.0\ClickToRun\Configuration"
 if not defined _C15R reg query HKLM\SOFTWARE\Microsoft\Office\15.0\ClickToRun\propertyBag /v productreleaseid %_Nul3% && set "_C15R=HKLM\SOFTWARE\Microsoft\Office\15.0\ClickToRun\propertyBag"
+)
 set _V16Ids=Mondo,ProPlus,ProjectPro,VisioPro,Standard,ProjectStd,VisioStd,Access,SkypeforBusiness,OneNote,Excel,Outlook,PowerPoint,Publisher,Word
 set _R16Ids=%_V16Ids%,Professional,HomeBusiness,HomeStudent,O365Business,O365SmallBusPrem,O365HomePrem,O365EduCloud
 for %%A in (14,15,16,19) do call :officeLoc %%A
@@ -545,6 +544,8 @@ echo.
 echo Make sure to exclude this file in the Antivirus protection.
 echo %SystemRoot%\System32\SppExtComObjHook.dll)
 )
+if %uManual% EQU 1 timeout 5
+if %uAutoRenewal% EQU 1 timeout 5
 if %Unattend% NEQ 0 goto :TheEnd
 echo.
 echo Press any key to continue...
@@ -991,8 +992,8 @@ exit /b
 )
 
 if exist "%ProgramFiles%\Microsoft Office\Office%1\OSPP.VBS" set loc_off%1=1
-if exist "%ProgramW6432%\Microsoft Office\Office%1\OSPP.VBS" set loc_off%1=1
-if exist "%ProgramFiles(x86)%\Microsoft Office\Office%1\OSPP.VBS" set loc_off%1=1
+if %xOS%==x64 if exist "%ProgramW6432%\Microsoft Office\Office%1\OSPP.VBS" set loc_off%1=1
+if %xOS%==x64 if exist "%ProgramFiles(x86)%\Microsoft Office\Office%1\OSPP.VBS" set loc_off%1=1
 exit /b
 
 :insKey
@@ -1008,6 +1009,7 @@ cmd /c exit /b %ERRORCODE%
 echo Failed: 0x!=ExitCode!
 exit /b
 )
+if %sps% EQU SoftwareLicensingService wmic path %sps% where version='%ver%' call RefreshLicenseStatus %_Nul3%
 
 :activate
 wmic path %spp% where ID='%app%' call ClearKeyManagementServiceMachine %_Nul3%
@@ -1030,15 +1032,15 @@ call set ERRORCODE=!ERRORLEVEL!
 if %sps% EQU SoftwareLicensingService wmic path %sps% where version='%ver%' call RefreshLicenseStatus %_Nul3%
 set gpr=0
 set gpr2=0
-for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where ID='%app%' get GracePeriodRemaining /VALUE"') do (set gpr=%%x&set /a gpr2=%%x/1440)
+for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where ID='%app%' get GracePeriodRemaining /VALUE"') do (set gpr=%%x&set /a "gpr2=(%%x+1440-1)/1440")
 if %gpr% EQU 43200 if %_office% EQU 0 if %winbuild% GEQ 9200 (
 echo Product Activation Successful
-echo Remaining Period: 30 days ^(%gpr% minutes^)
+echo Remaining Period: %gpr2% days ^(%gpr% minutes^)
 exit /b
 )
 if %gpr% EQU 64800 (
 echo Product Activation Successful
-echo Remaining Period: 45 days ^(%gpr% minutes^)
+echo Remaining Period: %gpr2% days ^(%gpr% minutes^)
 exit /b
 )
 if %gpr% GTR 259200 if %Win10Gov% EQU 1 (
@@ -1048,10 +1050,11 @@ exit /b
 )
 if %gpr% EQU 259200 (
 echo Product Activation Successful
-) else (
-cmd /c exit /b %ERRORCODE%
-echo Product Activation Failed: 0x!=ExitCode!
+echo Remaining Period: %gpr2% days ^(%gpr% minutes^)
+exit /b
 )
+cmd /c exit /b %ERRORCODE%
+if %ERRORCODE% NEQ 0 (echo Product Activation Failed: 0x!=ExitCode!) else (echo Product Activation Failed)
 echo Remaining Period: %gpr2% days ^(%gpr% minutes^)
 exit /b
 
@@ -1294,7 +1297,7 @@ goto :eof
 cls
 set "_oem=!_work!"
 copy /y nul "!_work!\#.rw" 1>nul 2>nul && (if exist "!_work!\#.rw" del /f /q "!_work!\#.rw") || (set "_oem=!_dsk!")
-if exist "!_oem!\$OEM$\$$\Setup\Scripts\setupcomplete.cmd" (
+if exist "!_oem!\$OEM$\" (
 echo.&echo %line3%&echo.
 echo $OEM$ Folder already exist...
 echo "!_oem!\$OEM$"
@@ -1339,38 +1342,22 @@ if %error1% EQU 1060 if %error2% EQU 1060 (
 goto :%_fC2R%
 )
 set _Office16=0
-for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\ClickToRun /v InstallPath" %_Nul6%') do if exist "%%b\root\Licenses16\*.xrm-ms" (
-  set _Office16=1&set "_OSPPVBS=%%b\Office16\OSPP.VBS"
-)
-if exist "%ProgramFiles%\Microsoft Office\Office16\OSPP.VBS" (
-  set _Office16=1&set "_OSPPVBS=%ProgramFiles%\Microsoft Office\Office16\OSPP.VBS"
-) else if exist "%ProgramW6432%\Microsoft Office\Office16\OSPP.VBS" (
-  set _Office16=1&set "_OSPPVBS=%ProgramW6432%\Microsoft Office\Office16\OSPP.VBS"
-) else if exist "%ProgramFiles(x86)%\Microsoft Office\Office16\OSPP.VBS" (
-  set _Office16=1&set "_OSPPVBS=%ProgramFiles(x86)%\Microsoft Office\Office16\OSPP.VBS"
+for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\ClickToRun /v InstallPath" %_Nul6%') do if exist "%%b\root\Licenses16\ProPlus*.xrm-ms" (
+  set _Office16=1
 )
 set _Office15=0
-for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\15.0\ClickToRun /v InstallPath" %_Nul6%') do if exist "%%b\root\Licenses\*.xrm-ms" (
+for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\15.0\ClickToRun /v InstallPath" %_Nul6%') do if exist "%%b\root\Licenses\ProPlus*.xrm-ms" (
   set _Office15=1
-)
-if exist "%ProgramFiles%\Microsoft Office\Office15\OSPP.VBS" (
-  set _Office15=1&set "_OSPP15VBS=%ProgramFiles%\Microsoft Office\Office15\OSPP.VBS"
-) else if exist "%ProgramW6432%\Microsoft Office\Office15\OSPP.VBS" (
-  set _Office15=1&set "_OSPP15VBS=%ProgramW6432%\Microsoft Office\Office15\OSPP.VBS"
-) else if exist "%ProgramFiles(x86)%\Microsoft Office\Office15\OSPP.VBS" (
-  set _Office15=1&set "_OSPP15VBS=%ProgramFiles(x86)%\Microsoft Office\Office15\OSPP.VBS"
 )
 if %_Office16% EQU 0 if %_Office15% EQU 0 (
 goto :%_fC2R%
 )
-if %_Office16% EQU 1 call :Reg16istry
-if %_Office15% EQU 1 call :Reg15istry
-goto :CheckC2R
 
 :Reg16istry
+if %_Office16% EQU 0 goto :Reg15istry
 set "_InstallRoot="
-set "_GUID="
 set "_ProductIds="
+set "_GUID="
 set "_Config="
 set "_PRIDs="
 set "_LicensesPath="
@@ -1385,7 +1372,17 @@ if not "%_InstallRoot%"=="" (
 set "_LicensesPath=%_InstallRoot%\Licenses16"
 set "_Integrator=%_InstallRoot%\integration\integrator.exe"
 for /f "skip=2 tokens=2*" %%a in ('"reg query %_PRIDs% /v ActiveConfiguration" %_Nul6%') do set "_PRIDs=%_PRIDs%\%%b"
-exit /b
+if "%_ProductIds%"=="" (
+if %_Office15% EQU 0 (goto :%_fC2R%) else (goto :Reg15istry)
+)
+if not exist "%_LicensesPath%\ProPlus*.xrm-ms" (
+if %_Office15% EQU 0 (goto :%_fC2R%) else (goto :Reg15istry)
+)
+if not exist "%_Integrator%" (
+if %_Office15% EQU 0 (goto :%_fC2R%) else (goto :Reg15istry)
+)
+if exist "%_LicensesPath%\Word2019VL_KMS_Client_AE*.xrm-ms" (set "_tag=2019"&set "_ons= 2019") else (set "_tag="&set "_ons= 2016")
+if %_Office15% EQU 0 goto :CheckC2R
 
 :Reg15istry
 set "_Install15Root="
@@ -1409,33 +1406,33 @@ if "%_Product15Ids%"=="" (
   set "_OSPP15ReadT=REG_DWORD"
 )
 set "_Licenses15Path=%_Install15Root%\Licenses"
-exit /b
+if exist "%ProgramFiles%\Microsoft Office\Office15\OSPP.VBS" (
+  set "_OSPP15VBS=%ProgramFiles%\Microsoft Office\Office15\OSPP.VBS"
+) else if exist "%ProgramW6432%\Microsoft Office\Office15\OSPP.VBS" (
+  set "_OSPP15VBS=%ProgramW6432%\Microsoft Office\Office15\OSPP.VBS"
+) else if exist "%ProgramFiles(x86)%\Microsoft Office\Office15\OSPP.VBS" (
+  set "_OSPP15VBS=%ProgramFiles(x86)%\Microsoft Office\Office15\OSPP.VBS"
+)
+if "%_Product15Ids%"=="" (
+if %_Office16% EQU 0 (goto :%_fC2R%) else (goto :CheckC2R)
+)
+if not exist "%_Licenses15Path%\ProPlus*.xrm-ms" (
+if %_Office16% EQU 0 (goto :%_fC2R%) else (goto :CheckC2R)
+)
+if %winbuild% LSS 9200 if not exist "%_OSPP15VBS%" (
+if %_Office16% EQU 0 (goto :%_fC2R%) else (goto :CheckC2R)
+)
 
 :CheckC2R
-if %_Office16% EQU 1 (
-if "%_ProductIds%"=="" (
-if %_Office15% EQU 0 goto :%_fC2R%
+set _OMSI=0
+if %_Office16% EQU 0 (
+for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\16.0\Common\InstallRoot /v Path" %_Nul6%') do if exist "%%b\OSPP.VBS" set _OMSI=1
+for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Wow6432Node\Microsoft\Office\16.0\Common\InstallRoot /v Path" %_Nul6%') do if exist "%%b\OSPP.VBS" set _OMSI=1
 )
-if not exist "!_LicensesPath!\*.xrm-ms" (
-if %_Office15% EQU 0 goto :%_fC2R%
+if %_Office15% EQU 0 (
+for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\15.0\Common\InstallRoot /v Path" %_Nul6%') do if exist "%%b\OSPP.VBS" set _OMSI=1
+for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Wow6432Node\Microsoft\Office\15.0\Common\InstallRoot /v Path" %_Nul6%') do if exist "%%b\OSPP.VBS" set _OMSI=1
 )
-if not exist "!_Integrator!" (
-if %_Office15% EQU 0 goto :%_fC2R%
-)
-if exist "!_LicensesPath!\Word2019VL_KMS_Client_AE*.xrm-ms" (set "_tag=2019") else (set "_tag=")
-)
-if %_Office15% EQU 1 (
-if "%_Product15Ids%"=="" (
-if %_Office16% EQU 0 goto :%_fC2R%
-)
-if not exist "!_Licenses15Path!\*.xrm-ms" (
-if %_Office16% EQU 0 goto :%_fC2R%
-)
-if %winbuild% LSS 9200 if not exist "!_OSPP15VBS!" (
-if %_Office16% EQU 0 goto :%_fC2R%
-)
-)
-
 if %winbuild% GEQ 9200 (
 set _spp=SoftwareLicensingProduct
 set _sps=SoftwareLicensingService
@@ -1451,7 +1448,7 @@ if not defined _wmi (
 goto :%_fC2R%
 )
 set _Retail=0
-wmic path %_spp% where (ApplicationID='%_oApp%' AND LicenseStatus='1' AND PartialProductKey IS NOT NULL) get Description %_Nul2% |findstr /V /R "^$" >"!_temp!\crvRetail.txt"
+wmic path %_spp% where "ApplicationID='%_oApp%' AND LicenseStatus='1' AND PartialProductKey<>NULL" get Description %_Nul2% |findstr /V /R "^$" >"!_temp!\crvRetail.txt"
 find /i "RETAIL channel" "!_temp!\crvRetail.txt" %_Nul1% && set _Retail=1
 find /i "RETAIL(MAK) channel" "!_temp!\crvRetail.txt" %_Nul1% && set _Retail=1
 find /i "TIMEBASED_SUB channel" "!_temp!\crvRetail.txt" %_Nul1% && set _Retail=1
@@ -1472,7 +1469,7 @@ set xBit=x86
 set _copp="!_Install15Root!\vfs\SystemX86"
 set xBit=x86
 )
-if %_Retail% EQU 0 if defined _copp (
+if %_Retail% EQU 0 if %_OMSI% EQU 0 if defined _copp (
 pushd %_copp%
 %_Nul3% %_psc% "$d='!cd!';$f=[io.file]::ReadAllText('!_batp!') -split ':%xBit%exe\:.*';iex ($f[1]);X 1;"
 %_Nul3% cleanospp.exe -Licenses
@@ -1480,8 +1477,8 @@ pushd %_copp%
 popd
 )
 set _O16O365=0
-if %_Retail% EQU 1 wmic path %_spp% where (ApplicationID='%_oApp%' AND LicenseStatus='1' AND PartialProductKey IS NOT NULL) get LicenseFamily %_Nul2% |findstr /V /R "^$" >"!_temp!\crvRetail.txt"
-wmic path %_spp% where (ApplicationID='%_oApp%') get LicenseFamily %_Nul2% |findstr /V /R "^$" >"!_temp!\crvVolume.txt" 2>&1
+if %_Retail% EQU 1 wmic path %_spp% where "ApplicationID='%_oApp%' AND LicenseStatus='1' AND PartialProductKey<>NULL" get LicenseFamily %_Nul2% |findstr /V /R "^$" >"!_temp!\crvRetail.txt"
+wmic path %_spp% where "ApplicationID='%_oApp%'" get LicenseFamily %_Nul2% |findstr /V /R "^$" >"!_temp!\crvVolume.txt" 2>&1
 
 if %_Office16% EQU 0 goto :R15V
 
@@ -1596,15 +1593,15 @@ echo ProPlus 2019 Suite
 call :InsLic ProPlus%_tag%
 )
 if !_ProPlus! EQU 1 if !_O365ProPlus! EQU 0 if !_ProPlus2019! EQU 0 (
-echo ProPlus 2016 Suite -^> ProPlus%_tag% Licenses
+echo ProPlus 2016 Suite -^> ProPlus%_ons% Licenses
 call :InsLic ProPlus%_tag%
 )
 if !_Professional2019! EQU 1 if !_O365ProPlus! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 (
-echo Professional 2019 Suite -^> ProPlus%_tag% Licenses
+echo Professional 2019 Suite -^> ProPlus%_ons% Licenses
 call :InsLic ProPlus%_tag%
 )
 if !_Professional! EQU 1 if !_O365ProPlus! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2019! EQU 0 (
-echo Professional 2016 Suite -^> ProPlus%_tag% Licenses
+echo Professional 2016 Suite -^> ProPlus%_ons% Licenses
 call :InsLic ProPlus%_tag%
 )
 if !_Standard2019! EQU 1 if !_O365ProPlus! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 (
@@ -1612,7 +1609,7 @@ echo Standard 2019 Suite
 call :InsLic Standard2019
 )
 if !_Standard! EQU 1 if !_O365ProPlus! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 if !_Standard2019! EQU 0 (
-echo Standard 2016 Suite -^> Standard%_tag% Licenses
+echo Standard 2016 Suite -^> Standard%_ons% Licenses
 call :InsLic Standard%_tag%
 )
 for %%a in (ProjectPro,VisioPro,ProjectStd,VisioStd) do if !_%%a2019! EQU 1 (
@@ -1621,21 +1618,21 @@ if defined _tag (call :InsLic %%a2019) else (call :InsLic %%a)
 )
 for %%a in (ProjectPro,VisioPro,ProjectStd,VisioStd) do if !_%%a! EQU 1 (
 if !_%%a2019! EQU 0 (
-  echo %%a 2016 SKU -^> %%a%_tag% Licenses
+  echo %%a 2016 SKU -^> %%a%_ons% Licenses
   call :InsLic %%a%_tag%
   )
 )
 for %%a in (HomeBusiness2019,HomeStudent2019) do if !_%%a! EQU 1 (
 if !_O365ProPlus! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 if !_Standard2019! EQU 0 if !_Standard! EQU 0 (
   set _Standard2019=1
-  echo %%a Suite -^> Standard2019 Licenses
+  echo %%a Suite -^> Standard 2019 Licenses
   call :InsLic Standard2019
   )
 )
 for %%a in (HomeBusiness,HomeStudent) do if !_%%a! EQU 1 (
 if !_O365ProPlus! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 if !_Standard2019! EQU 0 if !_Standard! EQU 0 if !_%%a2019! EQU 0 (
   set _Standard2019=1
-  echo %%a 2016 Suite -^> Standard%_tag% Licenses
+  echo %%a 2016 Suite -^> Standard%_ons% Licenses
   call :InsLic Standard%_tag%
   )
 )
@@ -1858,6 +1855,7 @@ for %%a in (%_RetIds%,ProPlus) do set "_%%a="
 if %_Office15% EQU 1 (
 for %%a in (%_R15Ids%,ProPlus) do set "_%%a="
 )
+if %winbuild% GEQ 9200 wmic path %_sps% where version='%_wmi%' call RefreshLicenseStatus %_Nul3%
 if exist "%SysPath%\spp\store_test\2.0\tokens.dat" if defined _copp (
 %_cscript% %_SLMGR% /rilc
 )
@@ -2120,14 +2118,14 @@ set "ExpireMsg="
 set "_xpr="
 for /f "tokens=* delims=" %%# in ('"wmic path %~1 where (ID='%chkID%') get %~3 /value" ^| findstr ^=') do set "%%#"
 
-set /a _gpr=GracePeriodRemaining/1440
+set /a _gpr=(GracePeriodRemaining+1440-1)/1440
 echo %Description%| findstr /i VOLUME_KMSCLIENT 1>nul && (set cKmsClient=1&set _mTag=Volume)
 echo %Description%| findstr /i TIMEBASED_ 1>nul && (set cTblClient=1&set _mTag=Timebased)
 echo %Description%| findstr /i VIRTUAL_MACHINE_ACTIVATION 1>nul && (set cAvmClient=1&set _mTag=Automatic VM)
 cmd /c exit /b %LicenseStatusReason%
 set "LicenseReason=%=ExitCode%"
 set "LicenseMsg=Time remaining: %GracePeriodRemaining% minute(s) (%_gpr% day(s))"
-if %_gpr% GTR 1 call :casWxpr
+if %_gpr% GEQ 1 for /f "tokens=* delims=" %%# in ('%_psc% "$([DateTime]::Now.addMinutes(%GracePeriodRemaining%)).ToString('yyyy-MM-dd HH:mm:ss')" 2^>nul') do set "_xpr=%%#"
 
 if %LicenseStatus% EQU 0 (
 set "License=Unlicensed"
@@ -2234,29 +2232,6 @@ echo.    Renewal interval: %VLRenewalInterval% minutes
 echo.    KMS host caching: %KeyManagementServiceHostCaching%
 if defined KeyManagementServiceLookupDomain echo.    KMS SRV record lookup domain: %KeyManagementServiceLookupDomain%
 if defined ExpireMsg echo.&echo.    %ExpireMsg%
-exit /b
-
-:casWxpr
-if not defined _jdn call :casWjdn _jdn
-set /a _xpr=_jdn+_gpr
-call :casWdate %_xpr% _xpr
-exit /b
-
-:casWjdn
-setlocal
-for /f "skip=1 delims=." %%# in ('WMIC OS Get LocalDateTime ^| findstr .') do set "_ts=%%#"
-set /a mm=%_ts:~4,2%, dd=%_ts:~6,2%, yyyy=%_ts:~0,4%
-set /a a=(mm-14)/12, _jdn=(1461*(yyyy+4800+a))/4+(367*(mm-2-12*a))/12-(3*((yyyy+4900+a)/100))/4+dd-32075
-endlocal & set %1=%_jdn%
-exit /b
-
-:casWdate
-setlocal
-set /a l=%1+68569,n=(4*l)/146097,l=l-(146097*n+3)/4,i=(4000*(l+1))/1461001,l=l-(1461*i)/4+31,j=(80*l)/2447
-set /a dd=l-(2447*j)/80,l=j/11,mm=j+2-(12*l),yyyy=100*(n-49)+i+l
-if %dd% lss 10 set dd=0%dd%
-if %mm% lss 10 set mm=0%mm%
-endlocal & set %2=%yyyy%-%mm%-%dd%
 exit /b
 
 :casWend
@@ -3134,7 +3109,7 @@ Add-Type -Language CSharp -TypeDefinition @"
 ::000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 :x86dll:
 
-:amd64dll:
+:x64dll:
 Add-Type -Language CSharp -TypeDefinition @"
  using System.IO; public class BAT85{ public static void Decode(string tmp, string s) { MemoryStream ms=new MemoryStream(); n=0;
  byte[] b85=new byte[255]; string a85="0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!#$&()+,-./;=?@[]^_{|}~";
@@ -3145,7 +3120,7 @@ Add-Type -Language CSharp -TypeDefinition @"
  private static byte[] n4b(){ return new byte[4]{(byte)(n>>24),(byte)(n>>16),(byte)(n>>8),(byte)n}; } private static long n=0; }
 "@; function X([int]$r=1){ $tmp="SppExtComObjHook.dll"; [BAT85]::Decode($tmp, $f[$r+1]) }
 
-:amd64dll:
+:x64dll:
 ::O;Iru0{{R31ONa4|Nj60xBvhE00000KmY($0000000000000000000000000000000000000000fB,mh4j/M?0JI6sA.Dld&]^51X?&ZOa(KpHVQnB|VQy}3bRc47
 ::AaZqXAZczOL{C#7ZEs{{E+5L|Bme,a00000P)=U$WQGI+j#rvo0000000000[Bl6&3jzWj04e|g02&.Q00000P!IqB01yBG008_H0000001yBG00IC21][s600000
 ::1][s6000000Du4h00aO4uCxFE0RTV(001BW0000001yBG00000000mG0000001yBG00000000005C8xG00000000000AK)BMFao;0000000000000000000000000
@@ -3331,7 +3306,7 @@ Add-Type -Language CSharp -TypeDefinition @"
 ::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 ::00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 ::0000000000000000000000000000000000000000
-:amd64dll:
+:x64dll:
 
 :x86exe:
 Add-Type -Language CSharp -TypeDefinition @"
@@ -3426,7 +3401,7 @@ Add-Type -Language CSharp -TypeDefinition @"
 ::iwT)&7!x!ma87hifKNash+g1ogk&$fCM..~kjQ3YgoG3lVMt/#5-6)+k@=$UNYq6O@3jMX0Du
 :x86exe:
 
-:amd64exe:
+:x64exe:
 Add-Type -Language CSharp -TypeDefinition @"
  using System.IO; public class BAT85{ public static void Decode(string tmp, string s) { MemoryStream ms=new MemoryStream(); n=0;
  byte[] b85=new byte[255]; string a85="0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz!#$&()+,-./;=?@[]^_{|}~";
@@ -3437,7 +3412,7 @@ Add-Type -Language CSharp -TypeDefinition @"
  private static byte[] n4b(){ return new byte[4]{(byte)(n>>24),(byte)(n>>16),(byte)(n>>8),(byte)n}; } private static long n=0; }
 "@; function X([int]$r=1){ $tmp="$r._"; [BAT85]::Decode($tmp, $f[$r+1]); expand $d\$tmp -F:* -R; del $tmp -force }
 
-:amd64exe:
+:x64exe:
 ::O/bZg00000!XN-u00000EC2ui000000|5a50RR9100000N(o.=0RRIP08Rh]00000005js0BQgLV{Bz&Zf|pNa4uzdWdJ2ilOu2.08U$gfQ;wo2jFoN0Jl?HBq9KS
 ::008cfr?;tDkd,4b?GCKCnmgo^dROl1myYJ8Y[swTP1jY!@&qo78NeWY-&N09^};1hHr_Y9(.i&X?+U{D4J1V3T.t~y[NrC7gAuv$x6wA}pz^=v0APe[s&8KHtqj}V
 ::TY5IvrZCKGsl^3=tMEw[L91Gg)i,enb^]KESYEUQ6PnPL[Rm1^]OpKairi,f_k7_#d8/Zycui;2LNP+/?8^.jVvHV/3ZIgA/&Vni[4x?0ATj]|0surq15oWyy7zi^
@@ -3522,7 +3497,7 @@ Add-Type -Language CSharp -TypeDefinition @"
 ::bGRRDAA5b7t^#hC4,OSzaS4])o!!yhkKc87#dpU$KspGOml#N^/0&QOV|c5oyQ;fyQ)Nb#@op1b.K4roy0W]nI;|F~I?BAx9bNZ$;zG6,y1Y8Qy1kv^U0;DF.Cqk(
 ::JG$&u,+iEw,j=[2,r~8{W&pvo#cr8hnO(RRj2$?TV7suL(aT{!vwOCy,)urO-3DNu??TX-@ELKh-Iiarh&Ck)synN[jk~pXjyoQAlkVLFyUKT&cX2zxXW[@;@=J67
 ::^.=RSch_64c=vo4?9hln6([8{2Hsk{2c8c-TzDpURq(PJo#Dgai]B=V3ghVT$MHJ6V!R&n9$p[vG2Rc+53di/2k#+BGF|}BRbo1Ey3T,I0AK
-:amd64exe:
+:x64exe:
 
 :spptask:
 [io.file]::WriteAllText("SvcTrigger.xml",$f[2].Trim(),[System.Text.Encoding]::Unicode);
@@ -3903,17 +3878,17 @@ Add-Type -Language CSharp -TypeDefinition @"
             <br />
             <h3><a name="MiscChk"></a>Check Activation Status</h3>
     <p>You can use those options to check the status of Windows and Office products.</p>
-    <p><strong>[8] Check Activation Status [vbs]</strong>:</p>
+    <p><strong>Check Activation Status [vbs]</strong>:</p>
     <ul>
       <li>query and execute official licensing VBScripts: slmgr.vbs for Windows, ospp.vbs for Office</li>
-      <li>it shows the exact activation expiration date for Windows</li>
-      <li>Office 2010 ospp.vbs show little info</li>
+      <li>it shows the activation expiration date for Windows</li>
+      <li>Office 2010 ospp.vbs shows very little info</li>
     </ul>
-    <p><strong>[9] Check Activation Status [wmic]</strong>:</p>
+    <p><strong>Check Activation Status [wmic]</strong>:</p>
     <ul>
       <li>query and execute native WMI functions, no vbscripting involved</li>
       <li>it shows extra more info (SKU ID, key channel)</li>
-      <li>it shows the activation expiration day date for all products</li>
+      <li>it shows the activation expiration date for all products</li>
       <li>it shows more detailed info for Office 2010</li>
       <li>it can show the status of Office UWP apps</li>
     </ul>
@@ -4053,6 +4028,23 @@ Silent activation (Auto Renewal mode if already installed, otherwise Manual mode
 KMS_VL_ALL_AIO.cmd /s
 </code>
     </pre>
+    <p>
+      <strong>Remarks:</strong>
+    </p>
+    <ul>
+      <li>In general, Windows batch scripts do not work well with unusual folder paths and files name, which contain non-ascii and unicode characters, long paths and spaces, or some of these special characters <code>` ~ ; ' , ! @ % ^ &amp; ( ) [ ] { } + =</code></li><br />
+      <li>KMS_VL_ALL_AIO script is coded to correctly handle those limitations, as much as possible.</li><br />
+      <li>If you changed the script file name and added some unusual characters or spaces, make sure to enclose the script name (or full path) in qoutes marks "" when you run it from command line prompt or another script.</li><br />
+      <li>By default, even explorer context menu option "Run as administrator" will fail to execute on some of those paths.<br />
+      In order to fix that, open command prompt as administrator, then copy/paste and execute these commands:</li>
+    </ul>
+    <pre>
+<code>
+set _r=^%SystemRoot^%
+reg add HKLM\SOFTWARE\Classes\batfile\shell\runas\command /f /v "" /t REG_EXPAND_SZ /d "%_r%\System32\cmd.exe /C \"\"%1\" %*\""
+reg add HKLM\SOFTWARE\Classes\cmdfile\shell\runas\command /f /v "" /t REG_EXPAND_SZ /d "%_r%\System32\cmd.exe /C \"\"%1\" %*\""
+</code>
+    </pre>
             <hr />
             <br />
 
@@ -4066,6 +4058,7 @@ KMS_VL_ALL_AIO.cmd /s
       for Windows 8.1 and 10 only: <code>Dism /online /Cleanup-Image /RestoreHealth</code><br />
       then, for any OS: <code>sfc /scannow</code></li>
     </ul>
+    <p>if Auto-Renewal is installed already, but the activation started to fail, run the installation again (option <b>2</b>), or Uninstall Completely then run the installation again.</p>
     <p>For Windows 7, if you have the errors described in <a href="https://support.microsoft.com/en-us/help/4487266">KB4487266</a>, execute the suggested fix.</p>
     <p>If you got Error <strong>0xC004F035</strong> on Windows 7, it means your Machine is not qualified for KMS activation. For more info, see <a href="https://support.microsoft.com/en-us/help/942962">here</a> and <a href="https://technet.microsoft.com/en-us/library/ff793426(v=ws.10).aspx#activation-of-windows-oem-computers">here</a>.</p>
     <p>If you got Error <strong>0x80040154</strong>, it is mostly related to misconfigured Windows 10 KMS38 activation, rearm the system and start over, or revert to Normal KMS.</p>
