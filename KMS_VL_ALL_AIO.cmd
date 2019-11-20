@@ -1,6 +1,6 @@
 <!-- : Begin batch script
 @setlocal DisableDelayedExpansion
-@set uivr=v36
+@set uivr=v36.0
 @echo off
 :: ### Configuration Options ###
 
@@ -73,9 +73,9 @@ if /i "%%A"=="/d" (set _Debug=1
 ) else if /i "%%A"=="/w" (set ActOffice=0&set ActWindows=1
 ) else if /i "%%A"=="/c" (set AutoR2V=0
 ) else if /i "%%A"=="/x" (set SkipKMS38=0
-) else if /i "%%A"=="/e" (set fAUR=0&set External=1
-) else if /i "%%A"=="/m" (set fAUR=0&set External=0
-) else if /i "%%A"=="/a" (set fAUR=1&set External=0
+) else if /i "%%A"=="/e" (set fAUR=0&set External=1&set uManual=0&set uAutoRenewal=0
+) else if /i "%%A"=="/m" (set fAUR=0&set External=0&set uAutoRenewal=0
+) else if /i "%%A"=="/a" (set fAUR=1&set External=0&set uManual=0
 ) else if /i "%%A"=="/r" (set rAUR=1
 ) else (set "KMS_IP=%%A")
 )
@@ -127,9 +127,7 @@ if not exist "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" goto 
 1>nul 2>nul reg query HKU\S-1-5-19 && goto :Passed
 
 set "_PSarg="""%~f0""" "
-if defined _args (
-set "_PSarg="""%~f0""" %_args:"="""%"
-)
+if defined _args set "_PSarg="""%~f0""" %_args%"
 
 (1>nul 2>nul cscript //NoLogo "%~f0?.wsf" //job:ELAV /File:"%~f0" %*) && (
   exit /b
@@ -507,8 +505,7 @@ SET "EditionID=%EditionWMI%"
 :Main
 IF DEFINED EditionID FOR %%A IN (EnterpriseG,EnterpriseGN) DO (IF /I "%EditionID%"=="%%A" SET Win10Gov=1)
 if defined EditionID (set "_winos=Windows %EditionID% edition") else (set "_winos=Detected Windows")
-if %winbuild% LSS 10240 for /f "skip=2 tokens=2*" %%a in ('reg query "hklm\software\microsoft\Windows NT\currentversion" /v productname %_Nul6%') do if not errorlevel 1 set "_winos=%%b"
-if %winbuild% GEQ 10240 for /f "tokens=2* delims== " %%a in ('"wmic os get caption /value" %_Nul6%') do if not errorlevel 1 set "_winos=%%b"
+for /f "skip=2 tokens=2*" %%a in ('reg query "hklm\software\microsoft\Windows NT\currentversion" /v productname %_Nul6%') do if not errorlevel 1 set "_winos=%%b"
 set "nKMS=does not support KMS activation..."
 set "nEval=Evaluation Editions cannot be activated. Please install full Windows OS."
 if defined EditionID echo %EditionID%| findstr /I /E Eval %_Nul1% && (
@@ -604,7 +601,7 @@ exit /b
 set _sC2R=sppoff
 set _fC2R=ReturnSPP
 set vol_off15=0&set vol_off16=0&set vol_off19=0
-wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name > "!_temp!\sppchk.txt" 2>&1
+wmic path %spp% where (Description like '%%KMSCLIENT%%' AND NOT Name like '%%MondoR_KMS_Automation%%') get Name > "!_temp!\sppchk.txt" 2>&1
 find /i "Office 19" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off19=1)
 find /i "Office 16" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off16=1)
 find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off15=1)
@@ -733,6 +730,11 @@ if %AUR% EQU 0 (
 reg delete "HKLM\%OPPk%\%_oA14%" /f %_Nul3%
 reg delete "HKLM\%OPPk%\%_oApp%" /f %_Nul3%
 )
+set "vPrem="&set "vProf="
+if %loc_off14% EQU 1 (
+for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (LicenseFamily='OfficeVisioPrem-MAK') get LicenseStatus /VALUE" %_Nul6%') do set vPrem=%%A
+for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (LicenseFamily='OfficeVisioPro-MAK') get LicenseStatus /VALUE" %_Nul6%') do set vProf=%%A
+)
 for /f "tokens=2 delims==" %%A in ('"wmic path %sps% get Version /VALUE" %_Nul6%') do set ver=%%A
 wmic path %sps% where version='%ver%' call SetKeyManagementServiceMachine MachineName="%KMS_IP%" %_Nul3%
 wmic path %sps% where version='%ver%' call SetKeyManagementServicePort %KMS_Port% %_Nul3%
@@ -750,7 +752,7 @@ exit /b
 set _sC2R=win7off
 set _fC2R=ReturnOSPP
 set vol_off14=0&set vol_off15=0&set vol_off16=0&set vol_off19=0
-wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name > "!_temp!\sppchk.txt" 2>&1
+wmic path %spp% where (Description like '%%KMSCLIENT%%' AND NOT Name like '%%MondoR_KMS_Automation%%') get Name > "!_temp!\sppchk.txt" 2>&1
 find /i "Office 19" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off19=1)
 find /i "Office 16" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off16=1)
 find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off15=1)
@@ -795,7 +797,7 @@ find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off15% EQU 0 exit /
 find /i "Office 16" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off16% EQU 0 exit /b)
 find /i "Office 19" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off19% EQU 0 exit /b)
 set _office=0
-wmic path %spp% where (PartialProductKey is not NULL) get ID | findstr /i "%app%" %_Nul3% && (echo.&call :activate&exit /b)
+wmic path %spp% where (PartialProductKey is not NULL) get ID %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate&exit /b)
 for /f "tokens=3 delims==, " %%G in ('"wmic path %spp% where ID='%app%' get Name /value"') do set OffVer=%%G
 call :offchk%OffVer%
 exit /b
@@ -803,17 +805,17 @@ exit /b
 :offchk
 set ls=0
 set ls2=0
-for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (LicenseFamily='Office%~2') get LicenseStatus /VALUE" %_Nul6%') do set /a ls=%%A
-if "%~4" NEQ "" (
-for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (LicenseFamily='Office%~4') get LicenseStatus /VALUE" %_Nul6%') do set /a ls2=%%A
+for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (LicenseFamily='Office%~1') get LicenseStatus /VALUE" %_Nul6%') do set /a ls=%%A
+if "%~3" NEQ "" (
+for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (LicenseFamily='Office%~3') get LicenseStatus /VALUE" %_Nul6%') do set /a ls2=%%A
 )
 if "%ls2%" EQU "1" (
-echo Checking: %~5
+echo Checking: %~4
 echo Product is Permanently Activated.
 exit /b
 )
 if "%ls%" EQU "1" (
-echo Checking: %~3
+echo Checking: %~2
 echo Product is Permanently Activated.
 exit /b
 )
@@ -825,27 +827,27 @@ if /i '%app%' EQU '0bc88885-718c-491d-921f-6f214349e79c' exit /b
 if /i '%app%' EQU 'fc7c4d0c-2e85-4bb9-afd4-01ed1476b5e9' exit /b
 if /i '%app%' EQU '500f6619-ef93-4b75-bcb4-82819998a3ca' exit /b
 if /i '%app%' EQU '85dd8b5f-eaa4-4af3-a628-cce9e77c9a03' (
-call :offchk "%app%" "19ProPlus2019VL_MAK_AE" "Office ProPlus 2019" "19ProPlus2019XC2RVL_MAKC2R" "Office ProPlus 2019 C2R"
+call :offchk "19ProPlus2019VL_MAK_AE" "Office ProPlus 2019"
 exit /b
 )
 if /i '%app%' EQU '6912a74b-a5fb-401a-bfdb-2e3ab46f4b02' (
-call :offchk "%app%" "19Standard2019VL_MAK_AE" "Office Standard 2019"
+call :offchk "19Standard2019VL_MAK_AE" "Office Standard 2019"
 exit /b
 )
 if /i '%app%' EQU '2ca2bf3f-949e-446a-82c7-e25a15ec78c4' (
-call :offchk "%app%" "19ProjectPro2019VL_MAK_AE" "Project Pro 2019" "19ProjectPro2019XC2RVL_MAKC2R" "Project Pro 2019 C2R"
+call :offchk "19ProjectPro2019VL_MAK_AE" "Project Pro 2019"
 exit /b
 )
 if /i '%app%' EQU '1777f0e3-7392-4198-97ea-8ae4de6f6381' (
-call :offchk "%app%" "19ProjectStd2019VL_MAK_AE" "Project Standard 2019"
+call :offchk "19ProjectStd2019VL_MAK_AE" "Project Standard 2019"
 exit /b
 )
 if /i '%app%' EQU '5b5cf08f-b81a-431d-b080-3450d8620565' (
-call :offchk "%app%" "19VisioPro2019VL_MAK_AE" "Visio Pro 2019" "19VisioPro2019XC2RVL_MAKC2R" "Visio Pro 2019 C2R"
+call :offchk "19VisioPro2019VL_MAK_AE" "Visio Pro 2019"
 exit /b
 )
 if /i '%app%' EQU 'e06d7df3-aad0-419d-8dfb-0ac37e2bdf39' (
-call :offchk "%app%" "19VisioStd2019VL_MAK_AE" "Visio Standard 2019"
+call :offchk "19VisioStd2019VL_MAK_AE" "Visio Standard 2019"
 exit /b
 )
 call :insKey
@@ -853,43 +855,43 @@ exit /b
 
 :offchk16
 if /i '%app%' EQU 'd450596f-894d-49e0-966a-fd39ed4c4c64' (
-call :offchk "%app%" "16ProPlusVL_MAK" "Office ProPlus 2016"
+call :offchk "16ProPlusVL_MAK" "Office ProPlus 2016"
 exit /b
 )
 if /i '%app%' EQU 'dedfa23d-6ed1-45a6-85dc-63cae0546de6' (
-call :offchk "%app%" "16StandardVL_MAK" "Office Standard 2016"
+call :offchk "16StandardVL_MAK" "Office Standard 2016"
 exit /b
 )
 if /i '%app%' EQU '4f414197-0fc2-4c01-b68a-86cbb9ac254c' (
-call :offchk "%app%" "16ProjectProVL_MAK" "Project Pro 2016"
+call :offchk "16ProjectProVL_MAK" "Project Pro 2016"
 exit /b
 )
 if /i '%app%' EQU 'da7ddabc-3fbe-4447-9e01-6ab7440b4cd4' (
-call :offchk "%app%" "16ProjectStdVL_MAK" "Project Standard 2016"
+call :offchk "16ProjectStdVL_MAK" "Project Standard 2016"
 exit /b
 )
 if /i '%app%' EQU '6bf301c1-b94a-43e9-ba31-d494598c47fb' (
-call :offchk "%app%" "16VisioProVL_MAK" "Visio Pro 2016"
+call :offchk "16VisioProVL_MAK" "Visio Pro 2016"
 exit /b
 )
 if /i '%app%' EQU 'aa2a7821-1827-4c2c-8f1d-4513a34dda97' (
-call :offchk "%app%" "16VisioStdVL_MAK" "Visio Standard 2016"
+call :offchk "16VisioStdVL_MAK" "Visio Standard 2016"
 exit /b
 )
 if /i '%app%' EQU '829b8110-0e6f-4349-bca4-42803577788d' (
-call :offchk "%app%" "16ProjectProXC2RVL_MAKC2R" "Project Pro 2016 C2R"
+call :offchk "16ProjectProXC2RVL_MAKC2R" "Project Pro 2016 C2R"
 exit /b
 )
 if /i '%app%' EQU 'cbbaca45-556a-4416-ad03-bda598eaa7c8' (
-call :offchk "%app%" "16ProjectStdXC2RVL_MAKC2R" "Project Standard 2016 C2R"
+call :offchk "16ProjectStdXC2RVL_MAKC2R" "Project Standard 2016 C2R"
 exit /b
 )
 if /i '%app%' EQU 'b234abe3-0857-4f9c-b05a-4dc314f85557' (
-call :offchk "%app%" "16VisioProXC2RVL_MAKC2R" "Visio Pro 2016 C2R"
+call :offchk "16VisioProXC2RVL_MAKC2R" "Visio Pro 2016 C2R"
 exit /b
 )
 if /i '%app%' EQU '361fe620-64f4-41b5-ba77-84f8e079b1f7' (
-call :offchk "%app%" "16VisioStdXC2RVL_MAKC2R" "Visio Standard 2016 C2R"
+call :offchk "16VisioStdXC2RVL_MAKC2R" "Visio Standard 2016 C2R"
 exit /b
 )
 call :insKey
@@ -897,68 +899,65 @@ exit /b
 
 :offchk15
 if /i '%app%' EQU 'b322da9c-a2e2-4058-9e4e-f59a6970bd69' (
-call :offchk "%app%" "ProPlusVL_MAK" "Office ProPlus 2013"
+call :offchk "ProPlusVL_MAK" "Office ProPlus 2013"
 exit /b
 )
 if /i '%app%' EQU 'b13afb38-cd79-4ae5-9f7f-eed058d750ca' (
-call :offchk "%app%" "StandardVL_MAK" "Office Standard 2013"
+call :offchk "StandardVL_MAK" "Office Standard 2013"
 exit /b
 )
 if /i '%app%' EQU '4a5d124a-e620-44ba-b6ff-658961b33b9a' (
-call :offchk "%app%" "ProjectProVL_MAK" "Project Pro 2013"
+call :offchk "ProjectProVL_MAK" "Project Pro 2013"
 exit /b
 )
 if /i '%app%' EQU '427a28d1-d17c-4abf-b717-32c780ba6f07' (
-call :offchk "%app%" "ProjectStdVL_MAK" "Project Standard 2013"
+call :offchk "ProjectStdVL_MAK" "Project Standard 2013"
 exit /b
 )
 if /i '%app%' EQU 'e13ac10e-75d0-4aff-a0cd-764982cf541c' (
-call :offchk "%app%" "VisioProVL_MAK" "Visio Pro 2013"
+call :offchk "VisioProVL_MAK" "Visio Pro 2013"
 exit /b
 )
 if /i '%app%' EQU 'ac4efaf0-f81f-4f61-bdf7-ea32b02ab117' (
-call :offchk "%app%" "VisioStdVL_MAK" "Visio Standard 2013"
+call :offchk "VisioStdVL_MAK" "Visio Standard 2013"
 exit /b
 )
 call :insKey
 exit /b
 
 :offchk14
-set "vPrem="&set "vPro="
-for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (LicenseFamily='OfficeVisioPrem-MAK') get LicenseStatus /VALUE" %_Nul6%') do set vPrem=%%A
-for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (LicenseFamily='OfficeVisioPro-MAK') get LicenseStatus /VALUE" %_Nul6%') do set vPro=%%A
 if /i '%app%' EQU '6f327760-8c5c-417c-9b61-836a98287e0c' (
-call :offchk "%app%" "ProPlus-MAK" "Office ProPlus 2010" "ProPlusAcad-MAK" "Office Professional Academic 2010"
+call :offchk "ProPlus-MAK" "Office ProPlus 2010" "ProPlusAcad-MAK" "Office Professional Academic 2010"
 exit /b
 )
 if /i '%app%' EQU '9da2a678-fb6b-4e67-ab84-60dd6a9c819a' (
-call :offchk "%app%" "Standard-MAK" "Office Standard 2010" "StandardAcad-MAK"  "Office Standard Academic 2010"
+call :offchk "Standard-MAK" "Office Standard 2010" "StandardAcad-MAK"  "Office Standard Academic 2010"
 exit /b
 )
 if /i '%app%' EQU 'ea509e87-07a1-4a45-9edc-eba5a39f36af' (
-call :offchk "%app%" "SmallBusBasics-MAK" "Office Small Business Basics 2010"
+call :offchk "SmallBusBasics-MAK" "Office Small Business Basics 2010"
 exit /b
 )
 if /i '%app%' EQU 'df133ff7-bf14-4f95-afe3-7b48e7e331ef' (
-call :offchk "%app%" "ProjectPro-MAK" "Project Pro 2010"
+call :offchk "ProjectPro-MAK" "Project Pro 2010"
 exit /b
 )
 if /i '%app%' EQU '5dc7bf61-5ec9-4996-9ccb-df806a2d0efe' (
-call :offchk "%app%" "ProjectStd-MAK" "Project Standard 2010" "ProjectStd-MAK2" "Project Standard 2010"
+call :offchk "ProjectStd-MAK" "Project Standard 2010" "ProjectStd-MAK2" "Project Standard 2010"
 exit /b
 )
 if /i '%app%' EQU '92236105-bb67-494f-94c7-7f7a607929bd' (
-call :offchk "%app%" "VisioPrem-MAK" "Visio Premium 2010" "VisioPro-MAK" "Visio Pro 2010"
+call :offchk "VisioPrem-MAK" "Visio Premium 2010" "VisioPro-MAK" "Visio Pro 2010"
 exit /b
 )
 if defined vPrem exit /b
 if /i '%app%' EQU 'e558389c-83c3-4b29-adfe-5e4d7f46c358' (
-call :offchk "%app%" "VisioPro-MAK" "Visio Pro 2010" "VisioStd-MAK" "Visio Standard 2010"
+call :offchk "VisioPro-MAK" "Visio Pro 2010" "VisioStd-MAK" "Visio Standard 2010"
 exit /b
 )
-if defined vPro exit /b
+if defined vProf exit /b
 if /i '%app%' EQU '9ed833ff-4f92-4f36-b370-8683a4f13275' (
-call :offchk "%app%" "VisioStd-MAK" "Visio Standard 2010"
+call :offchk "VisioStd-MAK" "Visio Standard 2010"
 exit /b
 )
 call :insKey
@@ -1592,7 +1591,7 @@ call :InsLic O365ProPlus DRNV7-VGMM2-B3G9T-4BF84-VMFTK
 if %_Office15% EQU 1 (goto :R15V) else (goto :GVLKC2R)
 )
 if !_ProPlus2019! EQU 1 if !_O365ProPlus! EQU 0 (
-echo ProPlus 2019 Suite -^> ProPlus%_tag% Licenses
+echo ProPlus 2019 Suite
 call :InsLic ProPlus%_tag%
 )
 if !_ProPlus! EQU 1 if !_O365ProPlus! EQU 0 if !_ProPlus2019! EQU 0 (
@@ -1608,7 +1607,7 @@ echo Professional 2016 Suite -^> ProPlus%_tag% Licenses
 call :InsLic ProPlus%_tag%
 )
 if !_Standard2019! EQU 1 if !_O365ProPlus! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 (
-echo Standard 2019 Suite -^> Standard2019 Licenses
+echo Standard 2019 Suite
 call :InsLic Standard2019
 )
 if !_Standard! EQU 1 if !_O365ProPlus! EQU 0 if !_ProPlus2019! EQU 0 if !_ProPlus! EQU 0 if !_Professional2019! EQU 0 if !_Professional! EQU 0 if !_Standard2019! EQU 0 (
@@ -1616,7 +1615,7 @@ echo Standard 2016 Suite -^> Standard%_tag% Licenses
 call :InsLic Standard%_tag%
 )
 for %%a in (ProjectPro,VisioPro,ProjectStd,VisioStd) do if !_%%a2019! EQU 1 (
-echo %%a 2019 SKU -^> %%a%_tag% Licenses
+echo %%a 2019 SKU
 if defined _tag (call :InsLic %%a2019) else (call :InsLic %%a)
 )
 for %%a in (ProjectPro,VisioPro,ProjectStd,VisioStd) do if !_%%a! EQU 1 (
@@ -1767,12 +1766,12 @@ call :Ins15Lic O365ProPlus DRNV7-VGMM2-B3G9T-4BF84-VMFTK
 goto :GVLKC2R
 )
 if !_SPD! EQU 1 if !_Mondo! EQU 0 if !_O365ProPlus! EQU 0 (
-echo SharePointDesigner 2013 App -^> Mondo 2013 Licenses
+echo SharePoint Designer 2013 App -^> Mondo 2013 Licenses
 call :Ins15Lic Mondo
 goto :GVLKC2R
 )
 if !_ProPlus! EQU 1 if !_O365ProPlus! EQU 0 (
-echo ProPlus 2013 Suite -^> ProPlus 2013 Licenses
+echo ProPlus 2013 Suite
 call :Ins15Lic ProPlus
 )
 if !_Professional! EQU 1 if !_O365ProPlus! EQU 0 if !_ProPlus! EQU 0 (
@@ -1780,11 +1779,11 @@ echo Professional 2013 Suite -^> ProPlus 2013 Licenses
 call :Ins15Lic ProPlus
 )
 if !_Standard! EQU 1 if !_O365ProPlus! EQU 0 if !_ProPlus! EQU 0 if !_Professional! EQU 0 (
-echo Standard 2013 Suite -^> Standard 2013 Licenses
+echo Standard 2013 Suite
 call :Ins15Lic Standard
 )
 for %%a in (ProjectPro,VisioPro,ProjectStd,VisioStd) do if !_%%a! EQU 1 (
-echo %%a 2013 SKU -^> %%a 2013 Licenses
+echo %%a 2013 SKU
 call :Ins15Lic %%a
 )
 for %%a in (HomeBusiness,HomeStudent) do if !_%%a! EQU 1 (
@@ -1869,6 +1868,15 @@ mode con cols=100 lines=31
 title Check Activation Status [vbs]
 %_Nul3% %_psc% "&%_buf%"
 setlocal EnableDelayedExpansion
+set _sO16vbs=0
+set _sO15vbs=0
+if exist "%ProgramFiles%\Microsoft Office\Office15\ospp.vbs" (
+  set _sO15vbs=1
+) else if exist "%ProgramW6432%\Microsoft Office\Office15\ospp.vbs" (
+  set _sO15vbs=1
+) else if exist "%ProgramFiles(x86)%\Microsoft Office\Office15\ospp.vbs" (
+  set _sO15vbs=1
+)
 echo %line2%
 echo ***                   Windows Status                     ***
 echo %line2%
@@ -1882,9 +1890,14 @@ echo %line3%
 set office=
 for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\16.0\Common\InstallRoot /v Path" 2^>nul') do (set "office=%%b")
 if exist "!office!\ospp.vbs" (
+set _sO16vbs=1
 echo.
 echo %line2%
+if %_sO15vbs% EQU 0 (
 echo ***              Office 2016 %_bit%-bit Status               ***
+) else (
+echo ***               Office 2013/2016 Status                ***
+)
 echo %line2%
 cscript //nologo "!office!\ospp.vbs" /dstatus
 )
@@ -1892,14 +1905,20 @@ if %_wow%==0 goto :casVo13
 set office=
 for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Wow6432Node\Microsoft\Office\16.0\Common\InstallRoot /v Path" 2^>nul') do (set "office=%%b")
 if exist "!office!\ospp.vbs" (
+set _sO16vbs=1
 echo.
 echo %line2%
+if %_sO15vbs% EQU 0 (
 echo ***              Office 2016 32-bit Status               ***
+) else (
+echo ***               Office 2013/2016 Status                ***
+)
 echo %line2%
 cscript //nologo "!office!\ospp.vbs" /dstatus
 )
 
 :casVo13
+if %_sO16vbs% EQU 1 goto :casVo10
 set office=
 for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\15.0\Common\InstallRoot /v Path" 2^>nul') do (set "office=%%b")
 if exist "!office!\ospp.vbs" (
@@ -1946,14 +1965,20 @@ reg query HKLM\SOFTWARE\Microsoft\Office\ClickToRun /v InstallPath >nul 2>&1 || 
 set office=
 for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\ClickToRun /v InstallPath" 2^>nul') do (set "office=%%b\Office16")
 if exist "!office!\ospp.vbs" (
+set _sO16vbs=1
 echo.
 echo %line2%
+if %_sO15vbs% EQU 0 (
 echo ***              Office 2016/2019 C2R Status             ***
+) else (
+echo ***             Office 2013/2016/2019 Status             ***
+)
 echo %line2%
 cscript //nologo "!office!\ospp.vbs" /dstatus
 )
 
 :casVc13
+if %_sO16vbs% EQU 1 goto :casVc10
 reg query HKLM\SOFTWARE\Microsoft\Office\15.0\ClickToRun /v InstallPath >nul 2>&1 || goto :casVc10
 set office=
 if exist "%ProgramFiles%\Microsoft Office\Office15\ospp.vbs" (
@@ -1972,7 +1997,6 @@ cscript //nologo "!office!\ospp.vbs" /dstatus
 )
 
 :casVc10
-::reg query HKLM\SOFTWARE\Microsoft\Office\14.0\Common\InstallRoot\Virtual >nul 2>&1 || goto :casVend
 reg query HKLM\SOFTWARE\Microsoft\Office\14.0\CVH /f Click2run /k >nul 2>&1 || goto :casVend
 set office=
 if exist "%ProgramFiles%\Microsoft Office\Office14\ospp.vbs" (
@@ -2029,6 +2053,7 @@ echo.
 echo Error: product key not found.
 goto :casWcon
 )
+set winID=1
 for /f "tokens=2 delims==" %%# in ('"wmic path %wspp% where (ApplicationID='%winApp%' and PartialProductKey is not null) get ID /value"') do (
   set "chkID=%%#"
   call :casWdet "%wspp%" "%wsps%" "%spp_get%"
@@ -2038,6 +2063,7 @@ for /f "tokens=2 delims==" %%# in ('"wmic path %wspp% where (ApplicationID='%win
 )
 
 :casWcon
+set winID=0
 set verbose=1
 if not defined c0ff1ce15 (
 if defined osppsvc goto :casWospp
@@ -2087,13 +2113,20 @@ exit /b
 for %%# in (%~3) do set "%%#="
 if %~1 EQU %ospp% for %%# in (DiscoveredKeyManagementServiceMachineIpAddress, KeyManagementServiceLookupDomain, ProductKeyChannel, VLActivationTypeEnabled) do set "%%#="
 set "cKmsClient="
+set "cTblClient="
+set "cAvmClient="
+set "ExpireMsg="
+set "_xpr="
 for /f "tokens=* delims=" %%# in ('"wmic path %~1 where (ID='%chkID%') get %~3 /value" ^| findstr ^=') do set "%%#"
 
-set /a gprDays=%GracePeriodRemaining%/1440
-echo %Description%| findstr /i VOLUME_KMSCLIENT 1>nul && (set cKmsClient=1)
+set /a _gpr=GracePeriodRemaining/1440
+echo %Description%| findstr /i VOLUME_KMSCLIENT 1>nul && (set cKmsClient=1&set _mTag=Volume)
+echo %Description%| findstr /i TIMEBASED_ 1>nul && (set cTblClient=1&set _mTag=Timebased)
+echo %Description%| findstr /i VIRTUAL_MACHINE_ACTIVATION 1>nul && (set cAvmClient=1&set _mTag=Automatic VM)
 cmd /c exit /b %LicenseStatusReason%
 set "LicenseReason=%=ExitCode%"
-set "LicenseMsg=Time remaining: %GracePeriodRemaining% minute(s) (%gprDays% day(s))"
+set "LicenseMsg=Time remaining: %GracePeriodRemaining% minute(s) (%_gpr% day(s))"
+if %_gpr% GTR 1 call :casWxpr
 
 if %LicenseStatus% EQU 0 (
 set "License=Unlicensed"
@@ -2102,19 +2135,28 @@ set "LicenseMsg="
 if %LicenseStatus% EQU 1 (
 set "License=Licensed"
 set "LicenseMsg="
-if not %GracePeriodRemaining%==0 set "LicenseMsg=Volume activation expiration: %GracePeriodRemaining% minute(s) (%gprDays% day(s))"
+if %GracePeriodRemaining% EQU 0 (
+  if %winID% EQU 1 (set "ExpireMsg=The machine is permanently activated.") else (set "ExpireMsg=The product is permanently activated.")
+  ) else (
+  set "LicenseMsg=%_mTag% activation expiration: %GracePeriodRemaining% minute(s) (%_gpr% day(s))"
+  if defined _xpr set "ExpireMsg=%_mTag% activation will expire %_xpr%"
+  )
 )
 if %LicenseStatus% EQU 2 (
 set "License=Initial grace period"
+if defined _xpr set "ExpireMsg=Initial grace period ends %_xpr%"
 )
 if %LicenseStatus% EQU 3 (
 set "License=Additional grace period (KMS license expired or hardware out of tolerance)"
+if defined _xpr set "ExpireMsg=Additional grace period ends %_xpr%"
 )
 if %LicenseStatus% EQU 4 (
 set "License=Non-genuine grace period."
+if defined _xpr set "ExpireMsg=Non-genuine grace period ends %_xpr%"
 )
 if %LicenseStatus% EQU 6 (
 set "License=Extended grace period"
+if defined _xpr set "ExpireMsg=Extended grace period ends %_xpr%"
 )
 if %LicenseStatus% EQU 5 (
 set "License=Notification"
@@ -2169,7 +2211,10 @@ echo Partial Product Key: %PartialProductKey%
 echo License Status: %License%
 if defined LicenseMsg echo %LicenseMsg%
 if not %LicenseStatus%==0 if not %EvaluationEndDate:~0,8%==16010101 echo Evaluation End Date: %EvaluationEndDate:~0,4%-%EvaluationEndDate:~4,2%-%EvaluationEndDate:~6,2% %EvaluationEndDate:~8,2%:%EvaluationEndDate:~10,2% UTC
-if not defined cKmsClient exit /b
+if not defined cKmsClient (
+if defined ExpireMsg echo.&echo.    %ExpireMsg%
+exit /b
+)
 if defined VLActivationTypeEnabled echo Configured Activation Type: %VLActivationType%
 echo.
 if not %LicenseStatus%==1 (
@@ -2187,6 +2232,30 @@ echo.    Activation interval: %VLActivationInterval% minutes
 echo.    Renewal interval: %VLRenewalInterval% minutes
 echo.    KMS host caching: %KeyManagementServiceHostCaching%
 if defined KeyManagementServiceLookupDomain echo.    KMS SRV record lookup domain: %KeyManagementServiceLookupDomain%
+if defined ExpireMsg echo.&echo.    %ExpireMsg%
+exit /b
+
+:casWxpr
+if not defined _jdn call :casWjdn _jdn
+set /a _xpr=_jdn+_gpr
+call :casWdate %_xpr% _xpr
+exit /b
+
+:casWjdn
+setlocal
+for /f "skip=1 delims=." %%# in ('WMIC OS Get LocalDateTime ^| findstr .') do set "_ts=%%#"
+set /a mm=%_ts:~4,2%, dd=%_ts:~6,2%, yyyy=%_ts:~0,4%
+set /a a=(mm-14)/12, _jdn=(1461*(yyyy+4800+a))/4+(367*(mm-2-12*a))/12-(3*((yyyy+4900+a)/100))/4+dd-32075
+endlocal & set %1=%_jdn%
+exit /b
+
+:casWdate
+setlocal
+set /a l=%1+68569,n=(4*l)/146097,l=l-(146097*n+3)/4,i=(4000*(l+1))/1461001,l=l-(1461*i)/4+31,j=(80*l)/2447
+set /a dd=l-(2447*j)/80,l=j/11,mm=j+2-(12*l),yyyy=100*(n-49)+i+l
+if %dd% lss 10 set dd=0%dd%
+if %mm% lss 10 set mm=0%mm%
+endlocal & set %2=%yyyy%-%mm%-%dd%
 exit /b
 
 :casWend
@@ -2197,7 +2266,7 @@ goto :eof
 
 :keys
 if "%~1"=="" exit /b
-goto :%1 %_Nul2% || exit /b
+goto :%1 %_Nul2%
 
 :: Windows 10 [RS5]
 :32d2fab3-e4a8-42c2-923b-4bf4fd13e6ee
@@ -3590,8 +3659,9 @@ Add-Type -Language CSharp -TypeDefinition @"
       <li>Portable all-in-one script, easier to move and distribute alone.</li><br />
       <li>All options and configurations are accessed via easy-to-use menu.</li><br />
       <li>Combine all the functions of the traditional scripts (Activate, AutoRenewal-Setup, Check-Activation-Status, setupcomplete).</li><br />
-      <li>Required binary files are embedded in the script, using ascii encoder by AveYo.</li><br />
+      <li>Required binary files are embedded in the script (including ReadMeAIO.html itself), using ascii encoder by AveYo.</li><br />
       <li>The needed files get extracted (decoded) later on-demand, via Windows PowerShell.</li><br />
+      <li>Simple colorization for some menu options text (for easier differentiation).</li><br />
       <li>Auto administrator elevation request.</li>
     </ul>
             <hr />
@@ -3706,7 +3776,7 @@ Add-Type -Language CSharp -TypeDefinition @"
     </ul>
     <ul>
       <li>If you are using <strong>Windows Defender</strong> on Windows 10 or 8.1, the script automatically adds an exclusion for <code>C:\Windows\System32\SppExtComObjHook.dll</code><br />
-      therefore, it's best <u>not to disable it</u>, and instead exclude the downloaded file and the extracted folder before running the script(s).</li>
+      therefore, <u>it's best not to disable Windows Defender</u>, and instead exclude the downloaded file and the extracted folder before running the script(s).</li>
     </ul>
     <ul>
       <li>Extract the downloaded file contents to a simple path without special characters or long spaces.</li>
@@ -3750,7 +3820,7 @@ Add-Type -Language CSharp -TypeDefinition @"
       <li>make sure that auto renewal mode is not installed, or remove it</li>
       <li>from the menu, press <b>1</b> to <strong>Activate [Manual Mode]</strong></li>
     </ul>
-    <p>You will have to run the script again to activate newly installed products (e.g. Office) or if Windows edition switched.</p>
+    <p>You will have to run the script again to activate newly installed products (e.g. Office) or if Windows edition is switched.</p>
     <p>You will have to run the script again to activate before the KMS activation period expires.</p>
     <p>You can run and activate anytime during that period to renew the period to the max interval.</p>
     <p>If the script is accidentally terminated before it completes the process, run the script again, then:</p>
@@ -3817,7 +3887,7 @@ Add-Type -Language CSharp -TypeDefinition @"
     <p>______________________________</p>
 
             <h3><a name="ConfW10"></a>Skip Windows 10 KMS 2038</h3>
-    <p>The script is set by default to check and skip Windows 10 activation if KMS 2038 is detected</p>
+    <p>The script is set by default to check and skip Windows 10 activation if KMS 2038 is detected.</p>
     <p>However, if you want to revert to normal KMS activation:</p>
     <ul>
       <li>from the menu, press letter <b>X</b> to change the state to <strong>Skip Windows 10 KMS38</strong> <b>[No]</b></li>
@@ -3898,7 +3968,8 @@ Add-Type -Language CSharp -TypeDefinition @"
         Set TCP port for KMS communications</li>
     </ul>
     <p>Tip:<br />
-    Advanced users can also edit the script and change the default state of configuration options, or activation modes.</p>
+    Advanced users can also edit the script and change the default state of configuration options, or activation modes.
+    However, command line switches take precedence over inner options.</p>
             <hr />
             <br />
 
@@ -4061,6 +4132,7 @@ KMS_VL_ALL_AIO.cmd /s
       <a href="https://stackoverflow.com/a/10407642">dbenham, jeb</a> - Color text in batch script.<br />
       <a href="https://stackoverflow.com/a/13351373">dbenham</a> - Set buffer height independently of window height.<br />
       <a href="https://stackoverflow.com/a/33626625">jeb</a> - Check if the file path name contains special characters.<br />
+      <a href="https://forums.mydigitallife.net/threads/74769/">hearywarlot</a> - Auto Elevate as admin.<br />
       <a href="https://forums.mydigitallife.net/posts/1296482/">qewpal</a> - KMS-VL-ALL script.<br />
       <a href="https://forums.mydigitallife.net/members/846864/">NormieLyfe</a> - GVLK categorize, Office checks help.<br />
       <a href="https://forums.mydigitallife.net/members/120394/">rpo</a>, <a href="https://forums.mydigitallife.net/members/2574/">mxman2k</a>, <a href="https://forums.mydigitallife.net/members/58504/">BAU</a>, <a href="https://forums.mydigitallife.net/members/presto1234.647219/">presto1234</a> - scripting suggestions.<br />
