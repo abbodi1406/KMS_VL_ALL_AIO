@@ -215,8 +215,11 @@ cls&goto :DoActivate
 ::  Set buffer height independently of window height
 ::  https://stackoverflow.com/a/13351373
 ::  Written by @dbenham (stackoverflow)
-mode con cols=98 lines=35
-%_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.width=98;$B.height=300;$W.buffersize=$B;}"
+rem %_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$L=$W.windowsize;if ($L.width -lt 80){$L.width=80};$L.height=35;$B=$W.buffersize;$B.width=$L.width;$B.height=300;$W.windowsize=$L;$W.buffersize=$B;}"
+echo.
+echo Initializing...
+mode con cols=80 lines=35
+%_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.height=300;$W.buffersize=$B;}"
 if %errorlevel% NEQ 0 goto :E_PS
 
 :MainMenu
@@ -249,7 +252,7 @@ echo.
 echo      1. Activate: [%_dMode%] Mode
 echo.
 echo      2. Install Auto Renewal    [%_dHook%]
-echo      3. Complete Uninstall
+echo      3. Uninstall Completely
 echo %line4%
 echo.
 echo            Configuration:
@@ -274,13 +277,13 @@ set _el=%errorlevel%
 if %_el%==11 if %winbuild% GEQ 10240 (if %SkipKMS38% EQU 0 (set SkipKMS38=1) else (set SkipKMS38=0))&goto :MainMenu
 if %_el%==10 goto :eof
 if %_el%==9 goto :E_IP
-if %_el%==8 if defined _ckc (cls&call :cCache)&goto :MainMenu
+if %_el%==8 if defined _ckc (set _verb=0&cls&goto :cCache)
 if %_el%==7 (call :casWm)&goto :MainMenu
 if %_el%==6 (call :casVm)&goto :MainMenu
 if %_el%==5 (if %ActOffice% EQU 0 (set ActOffice=1) else (set ActWindows=1&set ActOffice=0))&goto :MainMenu
 if %_el%==4 (if %ActWindows% EQU 0 (set ActWindows=1) else (set ActWindows=0&set ActOffice=1))&goto :MainMenu
-if %_el%==3 (set AUR=0&set _verb=1&cls&call :RemoveHook&call :cCache)&goto :MainMenu
-if %_el%==2 (if %AUR% EQU 0 (set AUR=1&set _verb=1&set _rtr=DoActivate&cls&goto :InstallHook) else (set _verb=0&set _rtr=DoActivate&cls&goto :InstallHook))&goto :MainMenu
+if %_el%==3 (set AUR=0&set _verb=1&cls&call :RemoveHook&goto :cCache)
+if %_el%==2 (if %AUR% EQU 0 (set AUR=1&set _verb=1&set _rtr=DoActivate&cls&goto :InstallHook) else (set _verb=0&set _rtr=DoActivate&cls&goto :InstallHook))
 if %_el%==1 (cls&goto :DoActivate)
 goto :MainMenu
 
@@ -389,7 +392,7 @@ if %Unattend% NEQ 0 goto :TheEnd
 echo.
 echo Press any key to continue...
 pause >nul
-goto :MainMenu
+if %_verb% EQU 1 (goto :cmdUI) else (goto :MainMenu)
 
 :RunSPP
 set spp=SoftwareLicensingProduct
@@ -823,6 +826,8 @@ goto :eof
 
 :InstallHook
 if %_verb% EQU 1 (
+mode con cols=100 lines=35
+%_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.height=300;$W.buffersize=$B;}"
 echo.
 echo Installing Local KMS Emulator...
 )
@@ -865,6 +870,10 @@ if %SSppHook% NEQ 0 if not exist %w7inf% (
   )
 )
 if %AUR% EQU 1 if %OSType% EQU Win8 call :CreateTask
+if %_verb% EQU 1 (
+echo.
+echo %line1%
+)
 goto :%_rtr%
 
 :RemoveHook
@@ -873,6 +882,8 @@ if %winbuild% GEQ 9600 (
   WMIC /NAMESPACE:\\root\Microsoft\Windows\Defender PATH MSFT_MpPreference call Remove ExclusionPath="%SystemRoot%\System32\SppExtComObjHook.dll" %_Nul3% && set "RemExc= and Windows Defender exclusions"
 )
 if %_verb% EQU 1 (
+mode con cols=100 lines=35
+%_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.height=300;$W.buffersize=$B;}"
 echo.
 echo Uninstalling Local KMS Emulator...
 echo.
@@ -991,7 +1002,7 @@ call :cREG %_Nul3%
 echo.
 echo Press any key to continue...
 pause >nul
-goto :eof
+if %_verb% EQU 1 (goto :cmdUI) else (goto :MainMenu)
 
 :CreateTask
 schtasks /query /tn "%_TaskEx%" %_Nul3% || (
