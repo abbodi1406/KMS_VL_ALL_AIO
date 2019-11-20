@@ -108,7 +108,7 @@ set "_PSarg="""%~f0""" %_args:"="""%"
   exit /b
   ) || (
   call setlocal EnableDelayedExpansion
-  1>nul 2>nul %SysPath%\WindowsPowerShell\v1.0\powershell -noprofile -exec bypass Start-Process -FilePath 'cmd.exe' -ArgumentList '/c \"!_PSarg!\"' -Verb RunAs && (
+  1>nul 2>nul %SysPath%\WindowsPowerShell\v1.0\powershell -noprofile -exec bypass -c "start cmd -ArgumentList '/c \"!_PSarg!\"' -verb runas" && (
     exit /b
     ) || (
     goto :E_Admin
@@ -168,7 +168,7 @@ set "_TaskOs=\Microsoft\Windows\SoftwareProtectionPlatform\SvcRestartTaskLogon"
 set "line1============================================================="
 set "line2=************************************************************"
 set "line3=____________________________________________________________"
-set "line4=               ______________________________"
+set "line4=          ______________________________"
 for /f "tokens=6 delims=[]. " %%G in ('ver') do set winbuild=%%G
 set SSppHook=0
 if %winbuild% LSS 9200 for /f %%A in ('dir /b /ad %SysPath%\spp\tokens\skus') do (
@@ -203,19 +203,19 @@ if %_Debug% EQU 1 if not defined fAUR set fAUR=0&set External=0
 if %Unattend% EQU 1 if not defined fAUR set fAUR=0&set External=0
 if not defined fAUR goto :cmdUI
 set Unattend=1
-if %fAUR% EQU 1 set AUR=1&set _verb=1&set _rtr=DoActivate&cls&goto :InstallHook
 set AUR=0
 if exist %_Hook% dir /b /al %_Hook% %_Nul3% || (
   reg query "%IFEO%\%SppVer%" /v KMS_Emulation %_Nul3% && set AUR=1
   reg query "%IFEO%\osppsvc.exe" /v KMS_Emulation %_Nul3% && set AUR=1
 )
+if %fAUR% EQU 1 (if %AUR% EQU 0 (set AUR=1&set _verb=1&set _rtr=DoActivate&cls&goto :InstallHook) else (set _verb=0&set _rtr=DoActivate&cls&goto :InstallHook))
+if %External% EQU 0 (set AUR=0&cls&goto :DoActivate)
 cls&goto :DoActivate
 
 :cmdUI
 ::  Set buffer height independently of window height
 ::  https://stackoverflow.com/a/13351373
 ::  Written by @dbenham (stackoverflow)
-rem %_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$L=$W.windowsize;if ($L.width -lt 80){$L.width=80};$L.height=35;$B=$W.buffersize;$B.width=$L.width;$B.height=300;$W.windowsize=$L;$W.buffersize=$B;}"
 echo.
 echo Initializing...
 mode con cols=80 lines=35
@@ -255,16 +255,16 @@ echo      2. Install Auto Renewal    [%_dHook%]
 echo      3. Uninstall Completely
 echo %line4%
 echo.
-echo            Configuration:
+echo             Configuration:
 echo.
 echo      4. Process Windows         [%_dAwin%]
 echo      5. Process Office          [%_dAoff%]
 if %winbuild% GEQ 10240 echo      W. Skip Windows 10 KMS38   [%_dWXKMS%]
 echo %line4%
 echo.
-echo            Miscellaneous:
+echo             Miscellaneous:
 echo.
-echo      6. Check Activation Status [slmgr.vbs / ospp.vbs]
+echo      6. Check Activation Status [vbs]
 echo      7. Check Activation Status [wmic]
 if defined _ckc echo      8. Clear KMS Cache
 echo %line4%
@@ -272,7 +272,7 @@ echo.
 echo      9. Activate: [External] Mode
 echo %line3%
 echo.
-choice /c 1234567890W /n /m "> Choose a menu option, or press 0 to quit: "
+choice /c 1234567890W /n /m "> Choose a menu option, or press 0 to Exit: "
 set _el=%errorlevel%
 if %_el%==11 if %winbuild% GEQ 10240 (if %SkipKMS38% EQU 0 (set SkipKMS38=1) else (set SkipKMS38=0))&goto :MainMenu
 if %_el%==10 goto :eof
@@ -826,8 +826,10 @@ goto :eof
 
 :InstallHook
 if %_verb% EQU 1 (
+if %Silent% EQU 0 if %_Debug% EQU 0 (
 mode con cols=100 lines=35
 %_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.height=300;$W.buffersize=$B;}"
+)
 echo.
 echo Installing Local KMS Emulator...
 )
@@ -882,8 +884,10 @@ if %winbuild% GEQ 9600 (
   WMIC /NAMESPACE:\\root\Microsoft\Windows\Defender PATH MSFT_MpPreference call Remove ExclusionPath="%SystemRoot%\System32\SppExtComObjHook.dll" %_Nul3% && set "RemExc= and Windows Defender exclusions"
 )
 if %_verb% EQU 1 (
+if %Silent% EQU 0 if %_Debug% EQU 0 (
 mode con cols=100 lines=35
 %_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.height=300;$W.buffersize=$B;}"
+)
 echo.
 echo Uninstalling Local KMS Emulator...
 echo.
@@ -2321,8 +2325,13 @@ goto :eof
 
 :E_PS
 echo %_err%
-echo Windows PowerShell is required for this script to function.
-goto :TheEnd
+echo Windows PowerShell is required for this script to work.
+echo.
+echo Press any key to exit.
+if %_Debug% EQU 1 goto :eof
+if %Unattend% EQU 1 goto :eof
+pause >nul
+goto :eof
 
 :E_DLL
 echo %_err%
