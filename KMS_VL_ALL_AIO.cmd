@@ -2,7 +2,7 @@
 @echo off
 :: ### Configuration Options ###
 
-:: change to 1 to enable debug mode (you can also use it with unattend options)
+:: change to 1 to enable debug mode (can be used with unattend options)
 set _Debug=0
 
 :: change to 0 to turn OFF Windows or Office activation processing via the script
@@ -49,6 +49,7 @@ set KMS_Port=1688
 :: # NORMALY THERE IS NO NEED TO CHANGE ANYTHING BELOW THIS COMMENT #
 :: ##################################################################
 
+set uivr=v35
 set KMS_Emulation=1
 set Unattend=0
 
@@ -77,6 +78,10 @@ if %External% EQU 1 (if "%KMS_IP%"=="172.16.0.2" (set fAUR=0&set External=0) els
 if %uManual% EQU 1 (set fAUR=0&set External=0)
 if %uAutoRenewal% EQU 1 (set fAUR=1&set External=0)
 if defined fAUR set Unattend=1
+if %Silent% EQU 1 set Unattend=1
+set "_run=nul"
+if %Logger% EQU 1 set _run="%~dpn0_Silent.log"
+
 set "SysPath=%SystemRoot%\System32"
 if exist "%SystemRoot%\Sysnative\reg.exe" (set "SysPath=%SystemRoot%\Sysnative")
 set "Path=%SysPath%;%SystemRoot%;%SysPath%\Wbem;%SystemRoot%\System32\WindowsPowerShell\v1.0\"
@@ -128,9 +133,6 @@ set "_PSarg="""%~f0""" %_args:"="""%"
 )
 
 :Passed
-if %Silent% EQU 1 set Unattend=1
-set "_run=nul"
-if %Logger% EQU 1 set _run="%~dpn0_Silent.log"
 set "_temp=%SystemRoot%\Temp"
 set "_log=%~dpn0"
 set "_work=%~dp0"
@@ -162,6 +164,7 @@ if %_Debug% EQU 0 (
   @call :Begin >"!_log!.tmp" 2>&1 &cmd /u /c type "!_log!.tmp">"!_log!_Debug.log"&del "!_log!.tmp"
 )
 @color 07
+@title %ComSpec%
 @exit /b
 
 :Begin
@@ -180,7 +183,7 @@ for /f "tokens=6 delims=[]. " %%G in ('ver') do set winbuild=%%G
 set SSppHook=0
 if %winbuild% LSS 9200 for /f %%A in ('dir /b /ad %SysPath%\spp\tokens\skus') do (
   if exist "%SysPath%\spp\tokens\skus\%%A\*VLKMS*.xrm-ms" set SSppHook=1
-  if exist "%SysPath%\spp\tokens\skus\%%A\*VLBA*.xrm-ms" set SSppHook=1
+  if exist "%SysPath%\spp\tokens\skus\%%A\*VL-BYPASS*.xrm-ms" set SSppHook=1
 )
 set OsppHook=1
 sc query osppsvc %_Nul3%
@@ -223,9 +226,9 @@ cls&goto :DoActivate
 cls
 mode con cols=80 lines=35
 color 07
-title KMS_VL_ALL
-set AUR=0
+title KMS_VL_ALL %uivr%
 set _dMode=Manual
+set AUR=0
 if exist %_Hook% dir /b /al %_Hook% %_Nul3% || (
   reg query "%IFEO%\%SppVer%" /v KMS_Emulation %_Nul3% && (set AUR=1&set _dMode=Auto Renewal)
   reg query "%IFEO%\osppsvc.exe" /v KMS_Emulation %_Nul3% && (set AUR=1&set _dMode=Auto Renewal)
@@ -325,7 +328,10 @@ color 8F&set "mode=External ^(%KMS_IP%^)"
 if %AUR% EQU 0 (color 1F&set "mode=Manual") else (color 07&set "mode=Auto Renewal")
 )
 if %Unattend% EQU 0 (
-if %_Debug% EQU 0 (title KMS_VL_ALL) else (title KMS_VL_ALL %mode%)
+if %_Debug% EQU 0 (title KMS_VL_ALL %uivr%) else (title KMS_VL_ALL %uivr% : %mode%)
+) else (
+echo.
+echo Running KMS_VL_ALL %uivr%
 )
 if %Silent% EQU 0 if %_Debug% EQU 0 (
 %_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.height=300;$W.buffersize=$B;}"
@@ -409,7 +415,7 @@ set Off1ce=0
 if %winbuild% GEQ 9200 if %ActOffice% NEQ 0 (
 call :sppoff
 )
-wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name %_Nul2% | findstr /i Windows %_Nul1% && (set WinVL=1) || (echo.&echo Windows %EditionID% edition do not support KMS activation...)
+wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name %_Nul2% | findstr /i Windows %_Nul1% && (set WinVL=1) || (echo.&echo Windows %EditionID% edition does not support KMS activation...)
 if %Off1ce% EQU 0 if %WinVL% EQU 0 exit /b
 if %AUR% EQU 0 (
 reg delete "HKLM\%SPPk%\55c92734-d682-4d71-983e-d6ec3f16059f" /f %_Nul3%
