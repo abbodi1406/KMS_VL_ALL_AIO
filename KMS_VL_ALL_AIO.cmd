@@ -186,6 +186,7 @@ if %_Debug% EQU 0 (
 
 :Begin
 if %_Debug% EQU 1 if defined _args echo %_args%
+set _verb=0
 set "_wApp=55c92734-d682-4d71-983e-d6ec3f16059f"
 set "_oApp=0ff1ce15-a989-479d-af46-f275c6370663"
 set "_oA14=59a52881-a989-479d-af46-f275c6370663"
@@ -247,7 +248,7 @@ cls&goto :DoActivate
 :MainMenu
 cls
 mode con cols=80 lines=30
-title KMS_VL_ALL AIO %uivr%
+title KMS_VL_ALL_AIO %uivr%
 color 07
 set _dMode=Manual
 set AUR=0
@@ -286,9 +287,9 @@ echo                    Miscellaneous:
 echo.
 echo                [8] Check Activation Status [vbs]
 echo                [9] Check Activation Status [wmic]
-echo                [E] Activate                [External Mode]
 echo                [S] Create $OEM$ Folder
 echo                [R] Read Me
+echo                [E] Activate [External Mode]
 echo           %line3%
 echo.
 choice /c 1234567890ERSX /n /m ">           Choose a menu option, or press 0 to Exit: "
@@ -355,10 +356,10 @@ color 8F&set "mode=External ^(%KMS_IP%^)"
 if %AUR% EQU 0 (color 1F&set "mode=Manual") else (color 07&set "mode=Auto Renewal")
 )
 if %Unattend% EQU 0 (
-if %_Debug% EQU 0 (title KMS_VL_ALL AIO %uivr%) else (title KMS_VL_ALL %uivr% : %mode%)
+if %_Debug% EQU 0 (title KMS_VL_ALL_AIO %uivr%) else (title KMS_VL_ALL %uivr% : %mode%)
 ) else (
 echo.
-echo Running KMS_VL_ALL AIO %uivr%
+echo Running KMS_VL_ALL_AIO %uivr%
 )
 if %Silent% EQU 0 if %_Debug% EQU 0 (
 %_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.height=300;$W.buffersize=$B;}"
@@ -443,6 +444,13 @@ if %AUR% EQU 0 call :RemoveHook
 sc start sppsvc trigger=timer;sessionid=0 %_Nul3%
 set External=0
 set KMS_IP=172.16.0.2
+if %_verb% EQU 1 (
+echo.&echo %line3%&echo.
+if "%_rtr%"=="DoActivate" (
+echo.
+echo Make sure to exclude this file in the Antivirus protection.
+echo %SystemRoot%\System32\SppExtComObjHook.dll)
+)
 if %Unattend% NEQ 0 goto :TheEnd
 echo.
 echo Press any key to continue...
@@ -1194,7 +1202,7 @@ echo.&echo %line3%&echo.
 echo $OEM$ Folder already exist...
 echo "!_oem!\$OEM$"
 echo.
-echo manually remove it if you wish to create a fresh copy.
+echo Manually remove it if you wish to create a fresh copy.
 echo.&echo %line3%&echo.
 echo Press any key to continue...
 pause >nul
