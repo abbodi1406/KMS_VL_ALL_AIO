@@ -54,6 +54,7 @@ set KMS_Emulation=1
 set Unattend=0
 
 set fAUR=
+set rAUR=
 set "_args=%*"
 if not defined _args goto :NoProgArgs
 if "%~1"=="" set "_args="&goto :NoProgArgs
@@ -70,6 +71,7 @@ if /i "%%A"=="/d" (set _Debug=1
 ) else if /i "%%A"=="/e" (set fAUR=0&set External=1
 ) else if /i "%%A"=="/m" (set fAUR=0&set External=0
 ) else if /i "%%A"=="/a" (set fAUR=1&set External=0
+) else if /i "%%A"=="/r" (set rAUR=1
 ) else (set "KMS_IP=%%A")
 )
 
@@ -78,6 +80,7 @@ if %External% EQU 1 (if "%KMS_IP%"=="172.16.0.2" (set fAUR=0&set External=0) els
 if %uManual% EQU 1 (set fAUR=0&set External=0)
 if %uAutoRenewal% EQU 1 (set fAUR=1&set External=0)
 if defined fAUR set Unattend=1
+if defined rAUR set Unattend=1
 if %Silent% EQU 1 set Unattend=1
 set "_run=nul"
 if %Logger% EQU 1 set _run="%~dpn0_Silent.log"
@@ -146,7 +149,7 @@ if %_Debug% EQU 0 (
   set "_Nul3=1>nul 2>nul"
   set "_Pause=pause >nul"
   if %Unattend% EQU 1 set "_Pause="
-  if %Silent% EQU 0 (call :Begin) else (call :Begin >!_run! 2>&1)
+  if %Silent% EQU 0 (goto :Begin) else (call :Begin >!_run! 2>&1)
 ) else (
   set "_Nul1="
   set "_Nul2="
@@ -165,6 +168,7 @@ if %_Debug% EQU 0 (
 )
 @color 07
 @title %ComSpec%
+@echo off
 @exit /b
 
 :Begin
@@ -208,11 +212,12 @@ set _uRI=
 set _uAI=
 for /f "tokens=2 delims==" %%# in ('findstr /i /b /c:"set KMS_RenewalInterval" "%~f0"') do if not defined _uRI set _uRI=%%#
 for /f "tokens=2 delims==" %%# in ('findstr /i /b /c:"set KMS_ActivationInterval" "%~f0"') do if not defined _uAI set _uAI=%%#
-
+set _dDbg=No
 if %ActWindows% EQU 0 if %ActOffice% EQU 0 set ActWindows=1
 if %_Debug% EQU 1 if not defined fAUR set fAUR=0&set External=0
 if %Unattend% EQU 1 if not defined fAUR set fAUR=0&set External=0
-if not defined fAUR goto :MainMenu
+if not defined fAUR if not defined rAUR goto :MainMenu
+if defined rAUR (set _verb=1&cls&call :RemoveHook&goto :cCache)
 set Unattend=1
 set AUR=0
 if exist %_Hook% dir /b /al %_Hook% %_Nul3% || (
@@ -247,6 +252,7 @@ if %OSType% EQU Win7 reg query "HKLM\%OSPP%" /v KeyManagementServiceName /s %_Nu
 if %ActWindows% EQU 0 (set _dAwin=No) else (set _dAwin=Yes)
 if %ActOffice% EQU 0 (set _dAoff=No) else (set _dAoff=Yes)
 if %SkipKMS38% EQU 0 (set _dWXKMS=No) else (set _dWXKMS=Yes)
+if %_Debug% EQU 0 (set _dDbg=No) else (set _dDbg=Yes)
 set _el=
 echo.
 echo %line3%
@@ -259,9 +265,10 @@ echo %line4%
 echo.
 echo             Configuration:
 echo.
+echo     [D] Enable Debug Mode       [%_dDbg%]
 echo     [4] Process Windows         [%_dAwin%]
 echo     [5] Process Office          [%_dAoff%]
-if %winbuild% GEQ 10240 echo     [W] Skip Windows 10 KMS38   [%_dWXKMS%]
+if %winbuild% GEQ 10240 echo     [X] Skip Windows 10 KMS38   [%_dWXKMS%]
 echo %line4%
 echo.
 echo             Miscellaneous:
@@ -276,19 +283,20 @@ echo.
 echo     [9] Activate: [External] Mode
 echo %line3%
 echo.
-choice /c 1234567890RSW /n /m "> Choose a menu option, or press 0 to Exit: "
+choice /c 123456789DXRS0 /n /m "> Choose a menu option, or press 0 to Exit: "
 set _el=%errorlevel%
-if %_el%==13 if %winbuild% GEQ 10240 (if %SkipKMS38% EQU 0 (set SkipKMS38=1) else (set SkipKMS38=0))&goto :MainMenu
-if %_el%==12 (call :CreateOEM)&goto :MainMenu
-if %_el%==11 (call :CreateReadMe)&goto :MainMenu
-if %_el%==10 goto :eof
+if %_el%==14 goto :eof
+if %_el%==13 (call :CreateOEM)&goto :MainMenu
+if %_el%==12 (call :CreateReadMe)&goto :MainMenu
+if %_el%==11 if %winbuild% GEQ 10240 (if %SkipKMS38% EQU 0 (set SkipKMS38=1) else (set SkipKMS38=0))&goto :MainMenu
+if %_el%==10 (if %_Debug% EQU 0 (set _Debug=1) else (set _Debug=0))&goto :MainMenu
 if %_el%==9 goto :E_IP
 if %_el%==8 if defined _ckc (set _verb=0&cls&goto :cCache)
 if %_el%==7 (call :casWm)&goto :MainMenu
 if %_el%==6 (call :casVm)&goto :MainMenu
 if %_el%==5 (if %ActOffice% EQU 0 (set ActOffice=1) else (set ActWindows=1&set ActOffice=0))&goto :MainMenu
 if %_el%==4 (if %ActWindows% EQU 0 (set ActWindows=1) else (set ActWindows=0&set ActOffice=1))&goto :MainMenu
-if %_el%==3 (set AUR=0&set _verb=1&cls&call :RemoveHook&goto :cCache)
+if %_el%==3 (if %_dDbg%==No (set _verb=1&cls&call :RemoveHook&goto :cCache) else (set _verb=1&cls&goto :RemoveHook))
 if %_el%==2 (if %AUR% EQU 0 (set AUR=1&set _verb=1&set _rtr=DoActivate&cls&goto :InstallHook) else (set _verb=0&set _rtr=DoActivate&cls&goto :InstallHook))
 if %_el%==1 (cls&goto :DoActivate)
 goto :MainMenu
@@ -307,6 +315,16 @@ set External=1
 cls
 
 :DoActivate
+if %_dDbg%==Yes (
+set "_para=/d"
+if %ActWindows% EQU 0 set "_para=!_para! /o"
+if %ActOffice% EQU 0 set "_para=!_para! /w"
+if %SkipKMS38% EQU 0 set "_para=!_para! /x"
+if %External% EQU 1 set "_para=!_para! /e %KMS_IP%"
+if %External% EQU 0 if %AUR% EQU 0 set "_para=!_para! /m"
+if %External% EQU 0 if %AUR% EQU 1 set "_para=!_para! /a"
+goto :DoDebug
+)
 if %External% EQU 1 (
 if "%KMS_IP%"=="172.16.0.2" set External=0
 )
@@ -837,6 +855,13 @@ sc query %1 | find /i "STOPPED" %_Nul1% || sc stop %1 %_Nul3%
 goto :eof
 
 :InstallHook
+if %_dDbg%==Yes (
+set "_para=/d /a"
+if %ActWindows% EQU 0 set "_para=!_para! /o"
+if %ActOffice% EQU 0 set "_para=!_para! /w"
+if %SkipKMS38% EQU 0 set "_para=!_para! /x"
+goto :DoDebug
+)
 if %_verb% EQU 1 (
 if %Silent% EQU 0 if %_Debug% EQU 0 (
 mode con cols=100 lines=35
@@ -891,6 +916,10 @@ echo %line1%
 goto :%_rtr%
 
 :RemoveHook
+if %_dDbg%==Yes (
+set "_para=/d /r"
+goto :DoDebug
+)
 if %winbuild% GEQ 9600 (
   reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\CurrentVersion\Software Protection Platform" /v "NoGenTicket" /f %_Nul3%
   WMIC /NAMESPACE:\\root\Microsoft\Windows\Defender PATH MSFT_MpPreference call Remove ExclusionPath="%SystemRoot%\System32\SppExtComObjHook.dll" %_Nul3% && set "RemExc= and Windows Defender exclusions"
@@ -1014,6 +1043,7 @@ echo Clearing KMS Cache...
 call :cKMS SoftwareLicensingProduct SoftwareLicensingService %_Nul3%
 if %OsppHook% NEQ 0 call :cKMS OfficeSoftwareProtectionProduct OfficeSoftwareProtectionService %_Nul3%
 call :cREG %_Nul3%
+if %Unattend% NEQ 0 goto :TheEnd
 echo.
 echo Press any key to continue...
 pause >nul
@@ -2913,6 +2943,14 @@ AutoRenewal-Setup.cmd /s /l
   </body>
 </html>
 :readme:
+
+:DoDebug
+set _dDbg=No
+setlocal
+call "%~f0" !_para!
+endlocal
+set _dDbg=Yes
+goto :MainMenu
 
 :E_Admin
 echo %_err%
