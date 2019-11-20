@@ -127,7 +127,7 @@ set _PSarg=%_PSarg:'=''%
   exit /b
   ) || (
   call setlocal EnableDelayedExpansion
-  1>nul 2>nul %SysPath%\WindowsPowerShell\v1.0\%_psc% "start cmd.exe -Arg '/c \"!_PSarg!\"' -verb runas" && (
+  1>nul 2>nul %SysPath%\WindowsPowerShell\v1.0\%_psc% "start cmd.exe -arg '/c \"!_PSarg!\"' -verb runas" && (
     exit /b
     ) || (
     goto :E_Admin
@@ -576,7 +576,7 @@ if %AUR% EQU 0 (
 reg delete "HKLM\%SPPk%\%_wApp%" /f %_Nul3%
 reg delete "HKLM\%SPPk%\%_oApp%" /f %_Nul3%
 )
-wmic path %spp% where (Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL) get Name %_Nul2% | findstr /i Windows %_Nul1% && (set _gvlk=1) || (set _gvlk=0)
+wmic path %spp% where (ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL) get Name %_Nul2% | findstr /i Windows %_Nul1% && (set _gvlk=1) || (set _gvlk=0)
 set gpr=0
 if %winbuild% GEQ 10240 if %SkipKMS38% NEQ 0 if %_gvlk% EQU 1 for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL) get GracePeriodRemaining /VALUE" %_Nul6%') do set "gpr=%%A"
 if %gpr% NEQ 0 if %gpr% GTR 259200 (
@@ -653,7 +653,7 @@ exit /b
 
 :sppchkwin
 set _office=0
-if %winbuild% GEQ 14393 if %_gvlk% EQU 0 wmic path %spp% where (Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL) get Name %_Nul2% | findstr /i Windows %_Nul1% && (set _gvlk=1)
+if %winbuild% GEQ 14393 if %_gvlk% EQU 0 wmic path %spp% where (ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL) get Name %_Nul2% | findstr /i Windows %_Nul1% && (set _gvlk=1)
 wmic path %spp% where ID='%app%' get LicenseStatus %_Nul2% | findstr "1" %_Nul1% && (echo.&call :activate&exit /b)
 wmic path %spp% where (PartialProductKey is not NULL) get ID %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate&exit /b)
 if %_gvlk% EQU 1 exit /b
@@ -2116,7 +2116,7 @@ set "cTblClient="
 set "cAvmClient="
 set "ExpireMsg="
 set "_xpr="
-for /f "tokens=* delims=" %%# in ('"wmic path %~1 where (ID='%chkID%') get %~3 /value" ^| findstr ^=') do set "%%#"
+for /f "tokens=* delims=" %%# in ('"wmic path %~1 where ID='%chkID%' get %~3 /value" ^| findstr ^=') do set "%%#"
 
 set /a _gpr=(GracePeriodRemaining+1440-1)/1440
 echo %Description%| findstr /i VOLUME_KMSCLIENT 1>nul && (set cKmsClient=1&set _mTag=Volume)
@@ -3882,7 +3882,7 @@ Add-Type -Language CSharp -TypeDefinition @"
     <ul>
       <li>query and execute official licensing VBScripts: slmgr.vbs for Windows, ospp.vbs for Office</li>
       <li>it shows the activation expiration date for Windows</li>
-      <li>Office 2010 ospp.vbs shows very little info</li>
+      <li>Office 2010 ospp.vbs shows a very little info</li>
     </ul>
     <p><strong>Check Activation Status [wmic]</strong>:</p>
     <ul>
@@ -4073,6 +4073,16 @@ reg add HKLM\SOFTWARE\Classes\cmdfile\shell\runas\command /f /v "" /t REG_EXPAND
       <li>wait until the operation is finished and Debug.log is created</li>
       <li>upload or post the log file on the home page (MDL forums) for inspection</li>
     </ul>
+    <p>If you have issues with Office activation, or got undesired or duplicate licenses (e.g. Office 2016 and 2019):</p>
+    <ul>
+      <li>Download Office Scrubber pack from <a href="https://forums.mydigitallife.net/posts/1466365/">here</a>.</li>
+      <li>To get rid of any conflicted licenses, run <strong>Uninstall_Licenses.cmd</strong>, then you must start any Office program to repair the licensing.</li>
+      <li>You may also try <strong>Uninstall_Keys.cmd</strong> for similar manner.</li>
+      <li>If you wish to remove Office and leftovers completely and start clean:<br />
+      uninstall Office normally from Control Panel / Programs and Feature<br />
+      then run <strong>Full_Scrub.cmd</strong><br />
+      afterward, install new Office.</li>
+    </ul>
     <p>Final tip, you may try to rebuild licensing Tokens.dat as suggested in <a href="https://support.microsoft.com/en-us/help/2736303">KB2736303</a> (this will require to repair Office afterward).</p>
             <hr />
             <br />
@@ -4122,12 +4132,10 @@ reg add HKLM\SOFTWARE\Classes\cmdfile\shell\runas\command /f /v "" /t REG_EXPAND
       <a href="https://forums.mydigitallife.net/posts/1448556/">Mouri_Naruto</a> - SppExtComObjPatcher-DLL<br />
       <a href="https://forums.mydigitallife.net/posts/1462101/">os51</a> - SppExtComObjPatcher ported to MinGW GCC, Retail/MAK checks examples.<br />
       <a href="https://forums.mydigitallife.net/posts/309737/">MasterDisaster</a> - Original script, WMI methods.<br />
-      <a href="https://forums.mydigitallife.net/members/1108726/">Windows_Addict</a> - Features suggestion, ideas, testing, and co-enhancing KMS_VL_ALL_AIO.<br />
+      <a href="https://forums.mydigitallife.net/members/1108726/">Windows_Addict</a> - Features suggestion, ideas, testing, and co-enhancing.<br />
       <a href="https://github.com/AveYo/Compressed2TXT">AveYo</a> - Compressed2TXT ascii encoder.<br />
       <a href="https://stackoverflow.com/a/10407642">dbenham, jeb</a> - Color text in batch script.<br />
       <a href="https://stackoverflow.com/a/13351373">dbenham</a> - Set buffer height independently of window height.<br />
-      <a href="https://stackoverflow.com/a/33626625">jeb</a> - Check if the file path name contains special characters.<br />
-      <a href="https://www.dostips.com/forum/viewtopic.php?p=27315#p27315">Aacini</a> - Julian Day Number conversions to get specific date.<br />
       <a href="https://forums.mydigitallife.net/threads/74769/">hearywarlot</a> - Auto Elevate as admin.<br />
       <a href="https://forums.mydigitallife.net/posts/1296482/">qewpal</a> - KMS-VL-ALL script.<br />
       <a href="https://forums.mydigitallife.net/members/846864/">NormieLyfe</a> - GVLK categorize, Office checks help.<br />
