@@ -57,15 +57,19 @@ set KMS_Port=1688
 set KMS_Emulation=1
 set Unattend=0
 
+set _args=
+set _elev=
+set _batf=
+set _batp=
 set fAUR=
 set rAUR=
 set "_args=%*"
 if not defined _args goto :NoProgArgs
-if "%~1"=="" set "_args="&goto :NoProgArgs
 
 set _args=%_args:"=%
 for %%A in (%_args%) do (
-if /i "%%A"=="/d" (set _Debug=1
+if /i "%%A"=="-elevated" (set _elev=1
+) else if /i "%%A"=="/d" (set _Debug=1
 ) else if /i "%%A"=="/u" (set Unattend=1
 ) else if /i "%%A"=="/s" (set Silent=1
 ) else if /i "%%A"=="/l" (set Logger=1
@@ -87,7 +91,7 @@ if %uAutoRenewal% EQU 1 (set fAUR=1&set External=0)
 if defined fAUR set Unattend=1
 if defined rAUR set Unattend=1
 if %Silent% EQU 1 set Unattend=1
-set "_run=nul"
+set _run=nul
 if %Logger% EQU 1 set _run="%~dpn0_Silent.log"
 
 set "SysPath=%SystemRoot%\System32"
@@ -108,32 +112,22 @@ if /i %PROCESSOR_ARCHITECTURE%==x86 (if not defined PROCESSOR_ARCHITEW6432 (
   )
 )
 
-set "param=%~f0"
-cmd /v:on /c echo(^^!param^^!| findstr /R "[| ` ~ ! @ %% \^ & ( ) \[ \] { } + = ; ' , |]*^"
-if %errorlevel% EQU 0 (
-echo.
-echo %_err%
-echo Disallowed special characters detected in the file path.
-echo Make sure the path does not contain the following special characters,
-echo ^` ^~ ^! ^@ %% ^^ ^& ^( ^) [ ] { } ^+ ^= ^; ^' ^,
-echo.
-echo Press any key to exit.
-pause >nul
-goto :eof
-)
-
 if not exist "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" goto :E_PS
 
-1>nul 2>nul reg query HKU\S-1-5-19 && goto :Passed
+1>nul 2>nul reg query HKU\S-1-5-19 && (
+  goto :Passed
+  ) || (
+  if defined _elev goto :E_Admin
+)
 
-set "_PSarg="""%~f0""" "
-if defined _args set "_PSarg="""%~f0""" %_args%"
+set _PSarg="""%~f0""" %_args% -elevated
+set _PSarg=%_PSarg:'=''%
 
-(1>nul 2>nul cscript //NoLogo "%~f0?.wsf" //job:ELAV /File:"%~f0" %*) && (
+(1>nul 2>nul cscript //NoLogo "%~f0?.wsf" //job:ELAV /File:"%~f0" %_args% -elevated) && (
   exit /b
   ) || (
   call setlocal EnableDelayedExpansion
-  1>nul 2>nul %SysPath%\WindowsPowerShell\v1.0\%_psc% "start cmd -ArgumentList '/c \"!_PSarg!\"' -verb runas" && (
+  1>nul 2>nul %SysPath%\WindowsPowerShell\v1.0\%_psc% "start cmd.exe -ArgumentList '/c \"!_PSarg!\"' -verb runas" && (
     exit /b
     ) || (
     goto :E_Admin
@@ -141,6 +135,8 @@ if defined _args set "_PSarg="""%~f0""" %_args%"
 )
 
 :Passed
+set "_batf=%~f0"
+set "_batp=%_batf:'=''%"
 set "_temp=%SystemRoot%\Temp"
 set "_log=%~dpn0"
 set "_work=%~dp0"
@@ -187,7 +183,10 @@ if %_Debug% EQU 0 (
 @exit /b
 
 :Begin
-if %_Debug% EQU 1 if defined _args echo %_args%
+if %_Debug% EQU 1 (
+if defined _args echo %_args%
+echo "!_batf!"
+)
 if exist "%_temp%\'" del /f /q "%_temp%\'"
 set _verb=0
 set "_wApp=55c92734-d682-4d71-983e-d6ec3f16059f"
@@ -236,8 +235,10 @@ call :StopService sppsvc
 )
 set _uRI=
 set _uAI=
-for /f "tokens=2 delims==" %%# in ('findstr /i /b /c:"set KMS_RenewalInterval" "%~f0"') do if not defined _uRI set _uRI=%%#
-for /f "tokens=2 delims==" %%# in ('findstr /i /b /c:"set KMS_ActivationInterval" "%~f0"') do if not defined _uAI set _uAI=%%#
+for /f "tokens=2 delims==" %%# in ('findstr /i /b /c:"set KMS_RenewalInterval" "!_batf!" %_Nul6%') do if not defined _uRI set _uRI=%%#
+for /f "tokens=2 delims==" %%# in ('findstr /i /b /c:"set KMS_ActivationInterval" "!_batf!" %_Nul6%') do if not defined _uAI set _uAI=%%#
+if not defined _uRI set _uRI=10080
+if not defined _uAI set _uAI=120
 set _dDbg=No
 if %ActWindows% EQU 0 if %ActOffice% EQU 0 set ActWindows=1
 if %_Debug% EQU 1 if not defined fAUR set fAUR=0&set External=0
@@ -1091,7 +1092,7 @@ for %%# in (SppExtComObjHookAvrf.dll,SppExtComObjHook.dll,SppExtComObjPatcher.dl
 	del /f /q "%SysPath%\%%#" %_Nul3%
 )
 pushd %SysPath%
-%_Nul3% %_psc% "$f=[io.file]::ReadAllText('%~f0') -split ':%xOS%dll\:.*';iex ($f[1]);X 1;"
+%_Nul3% %_psc% "$f=[io.file]::ReadAllText('!_batp!') -split ':%xOS%dll\:.*';iex ($f[1]);X 1;"
 popd
 if not exist "%SysPath%\SppExtComObjHook.dll" goto :E_DLL
 if %_verb% EQU 1 (
@@ -1266,7 +1267,7 @@ schtasks /query /tn "%_TaskEx%" %_Nul3% || (
 )
 schtasks /query /tn "%_TaskEx%" %_Nul3% || (
 pushd %_temp%
-%_Nul3% %_psc% "$f=[io.file]::ReadAllText('%~f0') -split ':spptask\:.*';iex ($f[1]);"
+%_Nul3% %_psc% "$f=[io.file]::ReadAllText('!_batp!') -split ':spptask\:.*';iex ($f[1]);"
 popd
 if exist "!_temp!\SvcTrigger.xml" (
   schtasks /create /tn "%_TaskEx%" /xml "!_temp!\SvcTrigger.xml" /f %_Nul3%
@@ -1283,7 +1284,7 @@ goto :eof
 :CreateReadMe
 if exist not "%SystemDrive%\Users\Public\ReadMeAIO.html" (
 pushd %SystemDrive%\Users\Public
-%_Nul3% %_psc% "$f=[io.file]::ReadAllText('%~f0') -split ':readme\:.*';iex ($f[1]);"
+%_Nul3% %_psc% "$f=[io.file]::ReadAllText('!_batp!') -split ':readme\:.*';iex ($f[1]);"
 popd
 )
 if exist "%SystemDrive%\Users\Public\ReadMeAIO.html" start "" "%SystemDrive%\Users\Public\ReadMeAIO.html"
@@ -1309,8 +1310,8 @@ echo $OEM$ Folder Created...
 echo.
 echo "!_oem!\$OEM$"
 echo.&echo %line3%&echo.
-if not exist "!_oem!\$OEM$\$$\Setup\Scripts\KMS_VL_ALL_AIO.cmd" mkdir ""!_oem!\$OEM$\$$\Setup\Scripts"
-copy /y "%~f0" "!_oem!\$OEM$\$$\Setup\Scripts\KMS_VL_ALL_AIO.cmd" %_Nul3%
+if not exist "!_oem!\$OEM$\$$\Setup\Scripts\KMS_VL_ALL_AIO.cmd" mkdir "!_oem!\$OEM$\$$\Setup\Scripts"
+copy /y "!_batf!" "!_oem!\$OEM$\$$\Setup\Scripts\KMS_VL_ALL_AIO.cmd" %_Nul3%
 (
 echo @echo off
 echo call %%~dp0KMS_VL_ALL_AIO.cmd /s /a
@@ -1473,7 +1474,7 @@ set xBit=x86
 )
 if %_Retail% EQU 0 if defined _copp (
 pushd %_copp%
-%_Nul3% %_psc% "$d='!cd!';$f=[io.file]::ReadAllText('%~f0') -split ':%xBit%exe\:.*';iex ($f[1]);X 1;"
+%_Nul3% %_psc% "$d='!cd!';$f=[io.file]::ReadAllText('!_batp!') -split ':%xBit%exe\:.*';iex ($f[1]);X 1;"
 %_Nul3% cleanospp.exe -Licenses
 %_Nul3% del /f /q cleanospp.exe
 popd
@@ -3647,6 +3648,7 @@ Add-Type -Language CSharp -TypeDefinition @"
       <li>Home Page:<br />
       <a href="https://forums.mydigitallife.net/posts/838808/">https://forums.mydigitallife.net/posts/838808/</a><br />
       Backup links:<br />
+      <a href="https://github.com/abbodi1406/KMS_VL_ALL_AIO">https://github.com/abbodi1406/KMS_VL_ALL_AIO</a><br />
       <a href="https://pastebin.com/cpdmr6HZ">https://pastebin.com/cpdmr6HZ</a><br />
       <a href="https://textuploader.com/1dav8">https://textuploader.com/1dav8</a></li>
     </ul>
@@ -3661,7 +3663,7 @@ Add-Type -Language CSharp -TypeDefinition @"
       <li>Combine all the functions of the traditional scripts (Activate, AutoRenewal-Setup, Check-Activation-Status, setupcomplete).</li><br />
       <li>Required binary files are embedded in the script (including ReadMeAIO.html itself), using ascii encoder by AveYo.</li><br />
       <li>The needed files get extracted (decoded) later on-demand, via Windows PowerShell.</li><br />
-      <li>Simple colorization for some menu options text (for easier differentiation).</li><br />
+      <li>Simple text colorization for some menu options (for easier differentiation).</li><br />
       <li>Auto administrator elevation request.</li>
     </ul>
             <hr />
@@ -3904,14 +3906,14 @@ Add-Type -Language CSharp -TypeDefinition @"
     <p><strong>[8] Check Activation Status [vbs]</strong>:</p>
     <ul>
       <li>query and execute official licensing VBScripts: slmgr.vbs for Windows, ospp.vbs for Office</li>
-      <li>it can show exact date on when will Windows Volume activation will expire</li>
+      <li>it shows the exact activation expiration date for Windows</li>
       <li>Office 2010 ospp.vbs show little info</li>
     </ul>
     <p><strong>[9] Check Activation Status [wmic]</strong>:</p>
     <ul>
       <li>query and execute native WMI functions, no vbscripting involved</li>
       <li>it shows extra more info (SKU ID, key channel)</li>
-      <li>it does not show expiration date for Windows</li>
+      <li>it shows the activation expiration day date for all products</li>
       <li>it shows more detailed info for Office 2010</li>
       <li>it can show the status of Office UWP apps</li>
     </ul>
@@ -4132,6 +4134,7 @@ KMS_VL_ALL_AIO.cmd /s
       <a href="https://stackoverflow.com/a/10407642">dbenham, jeb</a> - Color text in batch script.<br />
       <a href="https://stackoverflow.com/a/13351373">dbenham</a> - Set buffer height independently of window height.<br />
       <a href="https://stackoverflow.com/a/33626625">jeb</a> - Check if the file path name contains special characters.<br />
+      <a href="https://www.dostips.com/forum/viewtopic.php?p=27315#p27315">Aacini</a> - Julian Day Number conversions to get specific date.<br />
       <a href="https://forums.mydigitallife.net/threads/74769/">hearywarlot</a> - Auto Elevate as admin.<br />
       <a href="https://forums.mydigitallife.net/posts/1296482/">qewpal</a> - KMS-VL-ALL script.<br />
       <a href="https://forums.mydigitallife.net/members/846864/">NormieLyfe</a> - GVLK categorize, Office checks help.<br />
@@ -4192,7 +4195,7 @@ KMS_VL_ALL_AIO.cmd /s
 
 :DoDebug
 set _dDbg=No
-call "%~f0" !_para!
+cmd.exe /c ""!_batf!" !_para!"
 set _dDbg=Yes
 echo.
 echo Done.
