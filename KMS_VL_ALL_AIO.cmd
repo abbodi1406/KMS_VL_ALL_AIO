@@ -1,3 +1,4 @@
+<!-- : Begin batch script
 @echo off
 :: change to 1 to enable debug mode
 set _Debug=0
@@ -41,6 +42,8 @@ set Logger=0
 set fAUR=
 set "_args=%*"
 if not defined _args goto :NoProgArgs
+if "%~1"=="" set "_args="&goto :NoProgArgs
+
 set _args=%_args:"=%
 for %%A in (%_args%) do (
 if /i "%%A"=="/d" (set _Debug=1
@@ -81,16 +84,18 @@ if %errorlevel% EQU 0 (
 echo.
 echo %_err%
 echo Disallowed special characters detected in file path name.
+echo Make sure file path name do not have following special characters,
 echo ^` ^~ ^! ^@ %% ^^ ^& ^( ^) [ ] { } ^+ ^= ^; ^' ^,
-echo Use short simple path, preferably without non-english characters.
 echo.
 echo Press any key to exit.
 pause >nul
 goto :eof
 )
 
-reg query HKU\S-1-5-19 >nul 2>&1 || goto :E_Admin
+1>nul 2>nul reg query HKU\S-1-5-19 && goto :Passed
+(1>nul 2>nul cscript //NoLogo "%~f0?.wsf" //job:ELAV /File:"%~f0" %*) && (exit /b) || (goto :E_Admin)
 
+:Passed
 if %Silent% EQU 1 (
 set Unattend=1
 )
@@ -142,7 +147,8 @@ set "_TaskEx=\Microsoft\Windows\SoftwareProtectionPlatform\SvcTrigger"
 set "_TaskOs=\Microsoft\Windows\SoftwareProtectionPlatform\SvcRestartTaskLogon"
 set "line1============================================================="
 set "line2=************************************************************"
-set "line3=____________________________________________________________________________"
+set "line3=____________________________________________________________"
+set "line4=               ______________________________"
 for /f "tokens=6 delims=[]. " %%G in ('ver') do set winbuild=%%G
 set SSppHook=0
 if %winbuild% LSS 9200 for /f %%A in ('dir /b /ad %SysPath%\spp\tokens\skus') do (
@@ -171,6 +177,9 @@ set _uRI=
 set _uAI=
 for /f "tokens=2 delims==" %%# in ('findstr /i /b /c:"set KMS_RenewalInterval" "%~f0"') do if not defined _uRI set _uRI=%%#
 for /f "tokens=2 delims==" %%# in ('findstr /i /b /c:"set KMS_ActivationInterval" "%~f0"') do if not defined _uAI set _uAI=%%#
+
+if %_Debug% EQU 1 if not defined fAUR set fAUR=0&set External=0
+if %Unattend% EQU 1 if not defined fAUR set fAUR=0&set External=0
 if not defined fAUR goto :MainMenu
 set Unattend=1
 set AUR=0
@@ -198,29 +207,34 @@ if %ActOffice% EQU 0 (set _dAoff=No) else (set _dAoff=Yes)
 if %AUR% EQU 0 (set _dHook=Install) else (set _dHook=Remove)
 if %SkipKMS38% EQU 0 (set _dWXKMS=No) else (set _dWXKMS=Yes)
 set _el=
-echo %line1%
+mode con cols=98 lines=35
+%_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.width=98;$B.height=300;$W.buffersize=$B;}"
 echo.
-echo 1. Activate: %_dMode% Mode
+echo %line3%
 echo.
-echo 2. %_dHook% Auto Renewal Support
+echo      1. Activate: [%_dMode%] Mode
 echo.
-echo 3. Check and activate Windows {%_dAwin%}
+echo      2. %_dHook% Auto Renewal Support
+echo %line4%
 echo.
-echo 4. Check and activate Office {%_dAoff%}
+echo      3. Check and activate Windows [%_dAwin%}
+echo.
+echo      4. Check and activate Office [%_dAoff%}
 
-if %winbuild% GEQ 10240 echo.&echo 5. Skip Windows 10 KMS38 {%_dWXKMS%}
+if %winbuild% GEQ 10240 echo.&echo      5. Skip Windows 10 KMS38 [%_dWXKMS%]
+echo %line4%
 echo.
-echo 6. Check Activation Status {slmgr.vbs / ospp.vbs}
+echo      6. Check Activation Status [slmgr.vbs / ospp.vbs]
 echo.
-echo 7. Check Activation Status {wmic}
+echo      7. Check Activation Status [wmic]
+echo %line4%
+echo.
+echo      9. Activate: External Mode
 
-if %AUR% EQU 0 echo.&echo 8. Clear KMS Cache
+if %AUR% EQU 0 echo.&echo      8. Clear KMS Cache
+echo %line3%
 echo.
-echo 9. Activate: External Mode
-echo.
-echo %line1%
-echo.
-choice /c 1234567890 /n /m "Choose a menu option, or press 0 to quit: "
+choice /c 1234567890 /n /m "> Choose a menu option, or press 0 to quit: "
 set _el=%errorlevel%
 if %_el%==10 goto :eof
 if %_el%==9 goto :E_IP
@@ -2283,3 +2297,26 @@ echo.
 if %Unattend% EQU 0 echo Press any key to exit.
 %_Pause%
 goto :eof
+
+----- Begin wsf script --->
+<package>
+   <job id="ELAV">
+       <script language="VBScript">
+           Set strArg=WScript.Arguments.Named
+           If Not strArg.Exists("File") Then
+               Wscript.Echo "Switch /File:<File> is missing."
+               WScript.Quit 1
+           End If
+           Set strRdlproc = CreateObject("WScript.Shell").Exec("rundll32 kernel32,Sleep")
+           With GetObject("winmgmts:\\.\root\CIMV2:Win32_Process.Handle='" & strRdlproc.ProcessId & "'")
+               With GetObject("winmgmts:\\.\root\CIMV2:Win32_Process.Handle='" & .ParentProcessId & "'")
+                   If InStr (.CommandLine, WScript.ScriptName) <> 0 Then
+                       strLine = Mid(.CommandLine, InStr(.CommandLine , "/File:") + Len(strArg("File")) + 8)
+                   End If
+               End With
+               .Terminate
+           End With
+          CreateObject("Shell.Application").ShellExecute "cmd", "/c " & chr(34) & chr(34) & strArg("File") & chr(34) & strLine & chr(34), "", "runas", 1
+       </script>
+   </job>
+</package>
