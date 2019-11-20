@@ -257,32 +257,35 @@ set _el=
 echo.
 echo %line3%
 echo.
-echo      1. Activate: [%_dMode%] Mode
+echo     [1] Activate: [%_dMode%] Mode
 echo.
-echo      2. Install Auto Renewal    [%_dHook%]
-echo      3. Uninstall Completely
+echo     [2] Install Auto Renewal    [%_dHook%]
+echo     [3] Uninstall Completely
 echo %line4%
 echo.
 echo             Configuration:
 echo.
-echo      4. Process Windows         [%_dAwin%]
-echo      5. Process Office          [%_dAoff%]
-if %winbuild% GEQ 10240 echo      W. Skip Windows 10 KMS38   [%_dWXKMS%]
+echo     [4] Process Windows         [%_dAwin%]
+echo     [5] Process Office          [%_dAoff%]
+if %winbuild% GEQ 10240 echo     [W] Skip Windows 10 KMS38   [%_dWXKMS%]
 echo %line4%
 echo.
 echo             Miscellaneous:
 echo.
-echo      6. Check Activation Status [vbs]
-echo      7. Check Activation Status [wmic]
-if defined _ckc echo      8. Clear KMS Cache
+echo     [6] Check Activation Status [vbs]
+echo     [7] Check Activation Status [wmic]
+if defined _ckc echo     [8] Clear KMS Cache
+echo     [R] Read Me
+echo     [S] Create $OEM$ Folder
 echo %line4%
 echo.
-echo      9. Activate: [External] Mode
+echo     [9] Activate: [External] Mode
 echo %line3%
 echo.
-choice /c 1234567890W /n /m "> Choose a menu option, or press 0 to Exit: "
+choice /c 1234567890RW /n /m "> Choose a menu option, or press 0 to Exit: "
 set _el=%errorlevel%
-if %_el%==11 if %winbuild% GEQ 10240 (if %SkipKMS38% EQU 0 (set SkipKMS38=1) else (set SkipKMS38=0))&goto :MainMenu
+if %_el%==12 if %winbuild% GEQ 10240 (if %SkipKMS38% EQU 0 (set SkipKMS38=1) else (set SkipKMS38=0))&goto :MainMenu
+if %_el%==11 (call :CreateReadMe)&goto :MainMenu
 if %_el%==10 goto :eof
 if %_el%==9 goto :E_IP
 if %_el%==8 if defined _ckc (set _verb=0&cls&goto :cCache)
@@ -1029,7 +1032,7 @@ schtasks /query /tn "%_TaskEx%" %_Nul3% || (
 )
 schtasks /query /tn "%_TaskEx%" %_Nul3% || (
 pushd %_temp%
-%_Nul3% powershell -noprofile -exec bypass -c "$f=[io.file]::ReadAllText('%~f0') -split ':spptask\:.*';iex ($f[1]);" & exit/b
+%_Nul3% powershell -noprofile -exec bypass -c "$f=[io.file]::ReadAllText('%~f0') -split ':spptask\:.*';iex ($f[1]);"
 popd
 if exist "!_temp!\SvcTrigger.xml" (
   schtasks /create /tn "%_TaskEx%" /xml "!_temp!\SvcTrigger.xml" /f %_Nul3%
@@ -1041,6 +1044,14 @@ echo.
 echo Adding Schedule Task...
 echo "%_TaskEx%"
 )
+goto :eof
+
+:CreateReadMe
+if exist "%temp%\ReadMe.html" del /f /q "%temp%\ReadMe.html"
+pushd %temp%
+%_Nul3% powershell -noprofile -exec bypass -c "$f=[io.file]::ReadAllText('%~f0') -split ':readme\:.*';iex ($f[1]);"
+popd
+if exist "%temp%\ReadMe.html" start "" "%temp%\ReadMe.html"
 goto :eof
 
 :casVm
@@ -2324,6 +2335,566 @@ Add-Type -Language CSharp -TypeDefinition @"
 </Task>
 :spptask:
 
+:readme:
+[io.file]::WriteAllText("ReadMe.html",$f[2].Trim(),[System.Text.Encoding]::UTF8);
+
+:readme:
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>KMS_VL_ALL</title>
+    <style type="text/css">
+        #nav {
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 200px;
+            overflow: auto;
+        }
+
+        main {
+            position: fixed;
+            top: 0;
+            left: 200px;
+            right: 0;
+            bottom: 0;
+            overflow: auto;
+        }
+
+        .innertube {
+            margin: 15px;
+        }
+
+        * html main {
+            height: 100%;
+            width: 100%;
+        }
+
+        td, h1, h2, h3, h4, h5, p, ul, ol, li {
+            page-break-inside: avoid; 
+        }
+    </style>
+  </head>
+  <body>
+    <main>
+        <div class="innertube">
+
+            <h1><a name="Overview"></a>KMS_VL_ALL - Smart Activation Script</h1>
+    <ul>
+      <li>Batch script(s) to automate the activation of supported Windows and Office products using local KMS server emulator, or external server.</li>
+    </ul>
+    <ul>
+      <li>Designed to be unattended and smart enough not to override the permanent activation of products (Windows or Office),<br />
+      only non-activated products will be KMS-activated (if supported).</li>
+    </ul>
+    <ul>
+      <li>The ultimate feature of this solution when installed, it will provide 24/7 activation, whenever the system itself request it (renewal, reactivation, hardware change, Edition upgrade, new Office...), without needing interaction from user.</li>
+    </ul>
+    <ul>
+      <li>Some security programs will report infected files due KMS emulating (see source code near the end),<br />
+      this is false-positive, as long as you download the file from the trusted Home Page.</li>
+    </ul>
+    <ul>
+      <li>Home Page:<br />
+	  <a href="https://forums.mydigitallife.net/posts/838808/">https://forums.mydigitallife.net/posts/838808/</a></li>
+	  Backup links:<br />
+	  <a href="https://pastebin.com/cpdmr6HZ">https://pastebin.com/cpdmr6HZ</a><br />
+	  <a href="https://textuploader.com/1dav8">https://textuploader.com/1dav8</a>
+    </ul>
+    <hr />
+            <br />
+
+            <h2><a name="How"></a>How it works?</h2>
+    <ul>
+      <li>Key Management Service (KMS) is a genuine activation method provided by Microsoft for volume licensing cutomers (organizations, schools or goverments).<br />
+      The machines in those environments (called KMS clients) activate via the environment KMS host server (authorized Microsoft's licensing key), not via Microsoft activation servers.</li>
+      <p>For more info, see <a href="https://www.microsoft.com/Licensing/servicecenter/Help/FAQDetails.aspx?id=201#215">here</a> and <a href="https://technet.microsoft.com/en-us/library/ee939272(v=ws.10).aspx#kms-overview">here</a>.</p>
+    </ul>
+    <ul>
+      <li>By design, KMS activation period lasts up to <strong>180 Days</strong> (6 Months) at max, with the ability to renew and reinstate the period at any time.<br />
+      With the proper auto renewal configuration, it will be a continuous activation (essentially permanent).</li>
+    </ul>
+    <ul>
+      <li>KMS Emulators (server and client) are sophisticated tools based on the reversed engineered KMS protocol.<br />
+      It mimic the KMS server/client communications, and provide a clean activation for the supported KMS clients, without altering or hacking any system files integrity.</li>
+    </ul>
+    <ul>
+      <li>Updates for Windows or Office do not affect or block KMS activation, only a new KMS protocol will not work with local emulator.<br />
+    </ul>
+    <ul>
+      <li>The mechanism of <strong>SppExtComObjPatcher</strong> make it act as ready-on-request KMS server, providing instant activation without external schedule task or manual intervention.<br />
+      Incluing auto renewal, auto activation of volume Office afterwards, reactivation because of hardware change, date change, windows or office edition change... etc.</li>
+    <p>On Windows 7, later installed Office may require initiating the first activation vis OSPP.vbs or the script, or opening Office program.</p>
+    </ul>
+    <ul>
+      <li>That feature make use of "Image File Execution Options" technique to work, programmed as an Application Verifier custom provider for the system file responsible of KMS process.<br />
+      Hence, OS itself handle the DLL injection, allowing the hook to intercept the KMS activation request and write the response on the fly.</li>
+    <p>On Windows 8.1/10, it also handle the localhost restriction for KMS activation, and redirect any local/private IP address as it were external (different stack).</p>
+    </ul>
+    <ul>
+      <li>The activation script consist of advanced checks and commands of Windows Management Instrumentation Command <strong>WMIC</strong> utility, that query and execute the methods of Windows and Office licensing classes,<br />
+      providing a native activation processing, which is almost identical to the official VBScript tools slmgr.vbs and ospp.vbs, but in automated way.</li>
+    </ul>
+    <ul>
+      <li>The script(s) only access 3 parts of the system (if emulator is used):<br />
+      copy or link the file <code>"C:\Windows\System32\SppExtComObjHook.dll"</code><br />
+      add the hook registry keys to <code>"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options"</code><br />
+      add the osppsvc.exe keys to <code>"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform"</code></li>
+    </ul>
+    <hr />
+            <br />
+
+            <h3><a name="Supported"></a>Supported Products</h3>
+    <p>Volume-capable:</p>
+    <ul>
+      <li>Windows 8 / 8.1 / 10 (all official editions, except Windows 10 S)</li>
+      <li>Windows 7 (Enterprise /N/E, Professional /N/E, Embedded Standard/POSReady/ThinPC)</li>
+      <li>Windows Server 2008 R2 / 2012 / 2012 R2 / 2016 / 2019</li>
+      <li>Office Volume 2010 / 2013 / 2016 / 2019</li>
+    </ul>
+    <p>Unsupported Products:</p>
+    <ul>
+      <li>Office Retail</li>
+      <li>Windows Editions which do not support KMS activation by design:</li>
+      Windows Evaluation Editions<br />
+      Windows 7 (Starter, HomeBasic, HomePremium, Ultimate)<br />
+      Windows 10 (Cloud "S", IoTEnterprise, IoTEnterpriseS, ProfessionalSingleLanguage... etc)<br />
+      Windows Server (Server Foundation, Storage Server, Home Server 2011... etc)
+    </ul>
+    <p>These editions are only KMS-activatable for <em>45</em> days at max:</p>
+    <ul>
+      <li>Windows 10 Home edition variants</li>
+      <li>Windows 8.1 Core edition variants, Pro with Media Center, Pro Student</li>
+    </ul>
+    <p>These editions are only KMS-activatable for <em>30</em> days at max:</p>
+    <ul>
+      <li>Windows 8 Core edition variants, Pro with Media Center</li>
+    </ul>
+    <p>Notes:</p>
+    <ul>
+      <li>supported Windows products do not need volume conversion, only the GVLK (KMS key) is needed, which the script will install accordingly.</li>
+      <li>KMS activation on Windows 7 have a limitation related to SLIC 2.1 and Windows marker. For more info, see <a href="https://support.microsoft.com/en-us/help/942962">here</a> and <a href="https://technet.microsoft.com/en-us/library/ff793426(v=ws.10).aspx#activation-of-windows-oem-computers">here</a>.</li>
+    </ul>
+    <hr />
+            <br />
+
+            <h3><a name="OfficeR2V"></a>Office Retail to Volume</h3>
+    <p>Office Retail must be converted to Volume first, before it can be activated with KMS<br />
+    this includes Office C2R 365/2019/2016/2013 installed from default image files (e.g. ProPlus2019Retail.img)</p>
+    <p>To do so, you need to use this licensing converter script:<br />
+	<a href="https://forums.mydigitallife.net/posts/1150042/">C2R-Retail2Volume</a></p>
+    <p>You can use other tools that can convert licensing:</p>
+    <ul>
+      <li><a href="https://forums.mydigitallife.net/posts/1125229/">OfficeRTool</a></li>
+      <li>Office Tool Plus</li>
+      <li>Office 2013-2019 C2R Install</li>
+    </ul>
+    <p>Note: only OfficeRTool support converting Office UWP (modern Windows 10 Apps).</p>
+    <hr />
+            <br />
+
+            <h1><a name="Using"></a>How To Use</h1>
+    <ul>
+      <li>Remove any other KMS solutions.</li>
+    </ul>
+    <ul>
+      <li>Temporary suspend Antivirus realtime protection, or exclude the downloaded file and extracted folder from scanning to avoid quarantine.</li>
+    </ul>
+    <ul>
+      <li>Extract the downloaded file contents to a simple path without special characters or long spaces.</li>
+    </ul>
+    <ul>
+      <li>Administrator rights are require to run the activation script(s).</li>
+    </ul>
+    <ul>
+      <li>KMS_VL_ALL offer 3 flavors of activation modes.</li>
+    </ul>
+    <hr />
+            <br />
+
+            <h1><a name="Modes"></a>Activation Modes</h1>
+            <br />
+            <h2><a name="ModesAut"></a>Auto Renewal</h2>
+    <p>Recommended mode, where you need to run <strong>Activate.cmd</strong> once, afterwards, the system itself handle and renew activation per schedule.</p>
+    <p>To get this mode:</p>
+    <ul>
+      <li>first, run the script <strong>AutoRenewal-Setup.cmd</strong>, press Y to approve the installation</li>
+      <li>then, run <strong>Activate.cmd</strong></li>
+    </ul>
+    <p>If you use Antivirus software, it is best to exclude this file from scanning protection:<br /><code>C:\Windows\System32\SppExtComObjHook.dll</code></p>
+    <p>If Windows Defender is enabled on Windows 8.1 or 10, AutoRenewal-Setup.cmd adds the required exclusion upon installation.</p>
+    <p>Additionally, on Windows 8 and later, AutoRenewal-Setup.cmd <em>duplicate</em> inbox system schedule task <code>SvcRestartTaskLogon</code> to <code>SvcTrigger</code><br />
+    this is just a precaution step to insure that auto renewal period is evaluated and respected, it's not directly related to activation itself, and you can manually remove it.</p>
+    <p>If you later installed Volume Office product(s), it will be auto activated in this mode.</p>
+    <p>You can remove the extracted folder contents, it is not needed after installation.</p>
+    <p>Run <strong>AutoRenewal-Setup.cmd</strong> again if you want to remove and uninstall the auto renewal solution.</p>
+    <hr />
+            <br />
+
+            <h2><a name="ModesMan"></a>Manual</h2>
+    <p>Easy mode, where you only need to run <strong>Activate.cmd</strong>, without leaving any KMS emulator traces in the system.</p>
+    <p>To get this mode:</p>
+    <ul>
+      <li>make sure that auto renewal solution is not installed, or remove it</li>
+      <li>then, just run <strong>Activate.cmd</strong></li>
+    </ul>
+    <p>You will have to run <strong>Activate.cmd</strong> again before the KMS activation period expire.</p>
+    <p>You can run <strong>Activate.cmd</strong> anytime during that period to renew the period to the max interval.</p>
+    <p>If <strong>Activate.cmd</strong> is accidentally terminated before it completes, run the script again to clean any leftovers.</p>
+    <hr />
+            <br />
+
+            <h2><a name="ModesExt"></a>External</h2>
+    <p>Standalone mode, where you only need the file <strong>Activate.cmd</strong> alone, previously refered to as "Online KMS".</p>
+    <p>You can use <strong>Activate.cmd</strong> to activate against trusted external KMS server, without needing other files or using local KMS emulator functions.</p>
+    <p>External server can be a web address, or a network IP address (e.g. for local LAN or VM).</p>
+    <p>To get this mode:</p>
+    <ul>
+      <li>run <strong>Activate.cmd</strong> with command line switch <strong>/e</strong> followed by server address, example: <code>Activate.cmd /e pseudo.kms.server</code></li>
+      <li><strong>OR</strong></li>
+      <li>edit <strong>Activate.cmd</strong> with Notepad (or text editor)</li>
+      <li>change <code>External=0</code> to 1</li>
+      <li>change <code>KMS_IP=172.16.0.2</code> to the IP/address of the server</li>
+      <li>save the script, and then run</li>
+    </ul>
+    <p>If you later installed Volume Office product(s), it will be auto activated if the external server is still available</p>
+    <p>The used server address will be left registered in the system to allow activated products to auto renew against the external server if it is still available,<br />
+	otherwise, you need another manual run against new available server.</p>
+    <p>If you want to clean the server registration, run <strong>Activate.cmd</strong> in Manual mode once.<br />
+	or else, use this external script: <a href="https://github.com/abbodi1406/WHD/raw/master/scripts/Clear-KMS-Cache-20190329.zip">Clear-KMS-Cache</a></p>
+    <hr />
+            <br />
+
+            <h1><a name="Options"></a>Additional Options</h1>
+            <br />
+
+            <h3><a name="Unattend"></a>Unattended Switches</h3>
+    <p>
+      <strong>Activate.cmd</strong> command line switches (case-insensitive)
+    </p>
+    <ul>
+      <li>Unattended (auto exit):<br /><code>/u</code></li>
+    </ul>
+    <ul>
+      <li>Silent (implies Unattended):<br /><code>/s</code></li>
+    </ul>
+    <ul>
+      <li>Silent and create simple log:<br /><code>/s /l</code></li>
+    </ul>
+    <ul>
+      <li>Debug mode (implies Unattended):<br /><code>/d</code></li>
+    </ul>
+    <ul>
+      <li>Silent Debug mode:<br /><code>/s /d</code></li>
+    </ul>
+    <ul>
+      <li>External activation mode:<br /><code>/e pseudo.kms.server</code></li>
+    </ul>
+    <ul>
+      <li>Activate Office only:<br /><code>/o</code></li>
+    </ul>
+    <ul>
+      <li>Activate Windows only:<br /><code>/w</code></li>
+    </ul>
+    <ul>
+      <li>Revert Windows 10 KMS38 to normal KMS:<br /><code>/x</code></li>
+    </ul>
+    <p>
+      <strong>AutoRenewal-Setup.cmd</strong> command line switches (case-insensitive)
+    </p>
+    <ul>
+      <li>Unattended (auto install or remove and exit):<br /><code>/u</code></li>
+    </ul>
+    <ul>
+      <li>Silent (implies Unattended):<br /><code>/s</code></li>
+    </ul>
+    <ul>
+      <li>Silent and create simple log:<br /><code>/s /l</code></li>
+    </ul>
+    <ul>
+      <li>Debug mode (implies Unattended):<br /><code>/d</code></li>
+    </ul>
+    <ul>
+      <li>Silent Debug mode:<br /><code>/s /d</code></li>
+    </ul>
+    <ul>
+      <li>Force installation regardless detection (implies Unattended):<br /><code>/i</code></li>
+    </ul>
+    <ul>
+      <li>Force removal regardless detection (implies Unattended):<br /><code>/r</code></li>
+    </ul>
+    <ul>
+      <li>Do not clear KMS cache:<br /><code>/k</code></li>
+    </ul>
+    <p>
+      <strong>Notes:</strong>
+    </p>
+    <ul>
+      <li>You can combine multiple switches together in any order</li>
+      <li>Log switch <code>/l</code> only works with silent switch <code>/s</code></li>
+      <li>If Activate.cmd switch <code>/e</code> is specified without KMS server address, it will not have any effect</li>
+      <li>If Activate.cmd switches <code>/o</code> and <code>/w</code> are specified together, the last one takes precedence</li>
+      <li>If AutoRenewal-Setup.cmd switches <code>/i</code> and <code>/r</code> are specified together, the last one takes precedence</li>
+    </ul>
+    <p>
+      <strong>Examples:</strong>
+    </p>
+    <pre>
+<code>
+Activate.cmd /s /e /w pseudo.kms.server
+Activate.cmd /d /w /o
+Activate.cmd /u /x /e pseudo.kms.server
+AutoRenewal-Setup.cmd /s /r /k
+AutoRenewal-Setup.cmd /i /u 
+AutoRenewal-Setup.cmd /s /l
+</code>
+    </pre>
+    <p>===========</p>
+            <br />
+
+            <h3><a name="OptAct"></a>Activation Choice</h3>
+    <p>
+      <strong>Activate.cmd</strong> is set by default to process and try to activate both Windows and Office.</p>
+    <p>However, if you want to turn OFF processing Windows or Office, for whatever reason:</p>
+    <ul>
+      <li>you afraid it may override permanent activation</li>
+      <li>you want to speed up the operation (you have Windows or Office already permanently activated)</li>
+      <li>you want to activate Windows or Office later on your terms</li>
+    </ul>
+    <p>To do that:</p>
+    <ul>
+      <li>run <strong>Activate.cmd</strong> with command line switch <strong>/o</strong> or <strong>/w</strong>: <code>Activate.cmd /w</code></li>
+      <li><strong>OR</strong></li>
+      <li>edit <strong>Activate.cmd</strong> with Notepad (or text editor)</li>
+      <li>change <code>ActWindows=1</code> to zero 0 if tou want to skip Windows</li>
+      <li>change <code>ActOffice=1</code> to zero 0 if you want to skip Office</li>
+      <li>save the script, and then run</li>
+    </ul>
+    <p>Notice:<br />
+    the turn OFF choice is not very effective if Windows or Office installation is already Volume (GVLK installed),<br />
+    because the system itself may try to reach and KMS activate the products, specially on Windows 8 and later.</p>
+    <p>===========</p>
+            <br />
+
+            <h3><a name="OptW10"></a>Skip Windows 10 KMS 2038</h3>
+    <p>
+      <strong>Activate.cmd</strong> is set by default to check and skip Windows 10 activation if KMS 2038 is detected</p>
+    <p>However, if you want to to revert to normal KMS activation:</p>
+    <ul>
+      <li>run <strong>Activate.cmd</strong> with command line switch: <code>Activate.cmd /r</code></li>
+      <li><strong>OR</strong></li>
+      <li>edit <strong>Activate.cmd</strong> with Notepad (or text editor)</li>
+      <li>change <code>SkipKMS38=1</code> to zero 0</li>
+      <li>save the script, and then run</li>
+    </ul>
+    <p>Notice:<br />
+    if <code>SkipKMS38</code> is ON, Windows will always get checked and processed, even if <code>ActWindows</code> is OFF.</p>
+    <p>===========</p>
+            <br />
+
+            <h3><a name="OptKMS"></a>Advanced KMS Options</h3>
+    <p>You can modify KMS-related options by editing <strong>Activate.cmd</strong> prior running.</p>
+    <ul>
+      <li>
+        <strong>KMS_RenewalInterval</strong>
+        <br />
+        Set the interval for KMS auto renewal schedule (default is 10080 = weekly)<br />
+        this only have much effect on Auto Renwal or External modes<br />
+        allowed values in minutes: from 15 to 43200</li>
+    </ul>
+    <ul>
+      <li>
+        <strong>KMS_ActivationInterval</strong>
+        <br />
+        Set the interval for KMS reattempt schedule for failed activation renewal, or unactivated products to attemp activation<br />
+        this does not affect the overall KMS period (180 Days), or the renewal schedule<br />
+        allowed values in minutes: from 15 to 43200</li>
+    </ul>
+    <ul>
+      <li>
+        <strong>KMS_HWID</strong>
+        <br />
+        Set the Hardware Hash for local KMS emulator server (only affect Windows 8.1/10)<br />
+        0x prefix is mandatory</li>
+    </ul>
+    <ul>
+      <li>
+        <strong>KMS_Port</strong>
+        <br />
+        Set TCP port for KMS communications</li>
+    </ul>
+    <hr />
+            <br />
+
+            <h2><a name="Check"></a>Check Activation Status</h2>
+    <p>You can use those scripts to check the status of Windows and Office products.</p>
+    <p>Both scripts do not require running as administrator, a double-cick to run is enough.</p>
+    <p>
+      <strong>Check-Activation-Status.cmd</strong>:</p>
+    <ul>
+      <li>query and execute official licensing VBScripts: slmgr.vbs for Windows, ospp.vbs for Office</li>
+      <li>it can show exact date on when will Windows Volume activation will expire</li>
+      <li>Office 2010 ospp.vbs show little info</li>
+    </ul>
+    <p>
+      <strong>Check-Activation-Status-Alternative.cmd</strong>:</p>
+    <ul>
+      <li>query and execute native WMI functions, no vbscripting involved</li>
+      <li>it show extra more info (SKU ID, key channel)</li>
+      <li>it does not show expiration date for Windows</li>
+      <li>it show more detailed info for Office 2010</li>
+      <li>it can show status of Office UWP apps</li>
+    </ul>
+    <hr />
+            <br />
+
+            <h2><a name="Setup"></a>Setup Preactivate</h2>
+    <p>To preactivate the system during installation, copy <code>$oem$</code> folder to <code>sources</code> folder in the installation media (iso/usb).</p>
+    <p>If you already use another <strong>setupcomplete.cmd</strong>, rename this one to <strong>KMS_VL_ALL.cmd</strong> or similar name<br />
+    then add a command to run it in your setupcomplete.cmd, example:<br />
+	<code>call KMS_VL_ALL.cmd</code></p>
+    <p>Use <strong>AutoRenewal-Setup.cmd</strong> if you want to uninstall the project afterwards.</p>
+    <p>Notes:</p>
+    <ul>
+      <li>The included <strong>setupcomplete.cmd</strong> support the <em>Additional Options</em> described previously, except Unattended Switches.</li>
+      <li>Use <strong>AutoRenewal-Setup.cmd</strong> if you want to uninstall the project afterwards.</li>
+      <li>In Windows 8 and later, running setupcomplete.cmd is disabled if the default installed key for the edition is OEM Channel.</li>
+    </ul>
+    <hr />
+            <br />
+
+            <h2><a name="Debug"></a>Troubleshooting</h2>
+    <p>If the activation failed at first run:</p>
+    <ul>
+      <li>Run <strong>Activate.cmd</strong> one more time.</li>
+      <li>Reboot the system and try again.</li>
+      <li>Check that Antivirus software is not blocking "C:\Windows\SppExtComObjHook.dll".</li>
+      <li>Check System integrity, open command prompt as administrator, and execute these command respectively:<br />
+      for Windows 8.1 and 10 only: <code>Dism /online /Cleanup-Image /RestoreHealth</code><br />
+      then, for any OS: <code>sfc /scannow</code></li>
+    </ul>
+    <p>For Windows 7, if have the errors described in <a href="https://support.microsoft.com/en-us/help/4487266">KB4487266</a>, execute the suggested fix.</p>
+    <p>If you got Error <strong>0xC004F035</strong> on Windows 7, it means your Machine is not qualified for KMS activation. For more info, see <a href="https://support.microsoft.com/en-us/help/942962">here</a> and <a href="https://technet.microsoft.com/en-us/library/ff793426(v=ws.10).aspx#activation-of-windows-oem-computers">here</a>.</p>
+    <p>If you got Error <strong>0x80040154</strong>, it is mostly related to misconfigured Windows 10 KMS38 activation, rearm the system and start over, or revert to Normal KMS.</p>
+    <p>If you got Error <strong>0xC004E015</strong>, it is mostly related to misconfigured Office retail to volume conversion, try to reinstall system licenses:<br /><code>cscript //Nologo %SystemRoot%\System32\slmgr.vbs /rilc</code></p>
+    <p>If you got one of these Errors on Windows Server, verify that the system is properly converted from Evaluation to Retail/Volume:<br /><strong>0xC004E016</strong> - <strong>0xC004F014</strong> - <strong>0xC004F034</strong></p>
+    <p>If the activation still failed after the above tips, you may enable the debug mode to help determine the reason:</p>
+    <ul>
+      <li>run <strong>Activate.cmd</strong> with command line switch: <code>Activate.cmd /d</code></li>
+      <li><strong>OR</strong></li>
+      <li>edit <strong>Activate.cmd</strong> with Notepad (or text editor)</li>
+      <li>change <code>_Debug=0</code> to 1</li>
+      <li>save the script, and then run</li>
+      <li>wait until command prompt window is closed and Debug.log is created</li>
+      <li>upload or post the log file on the home page (MDL forums) for inspection</li>
+    </ul>
+    <p>Final tip, you may try to rebuild licensing Tokens.dat as suggested in <a href="https://support.microsoft.com/en-us/help/2736303">KB2736303</a> (this may require you to repair Office afterwards).</p>
+    <hr />
+            <br />
+
+            <h2><a name="Source"></a>Source Code</h2>
+            <br />
+            <h3><a name="srcAvrf"></a>SppExtComObjHookAvrf</h3>
+    <p>
+      <a href="https://forums.mydigitallife.net/posts/1508167/">https://forums.mydigitallife.net/posts/1508167/</a>
+      <br />
+      <a href="https://0x0.st/zPKX.7z">https://0x0.st/zPKX.7z</a>
+    </p>
+    <h4 id="visual-studio">Visual Studio:</h4>
+    <p>launch shortcut Developer Command Prompt for VS 2017 (or 2019)<br />
+    execute:<br />
+    <code>MSBuild SppExtComObjHook.sln /p:configuration="Release" /p:platform="Win32"</code><br />
+    <code>MSBuild SppExtComObjHook.sln /p:configuration="Release" /p:platform="x64"</code></p>
+    <h4 id="mingw-gcc">MinGW GCC:</h4>
+    <p>download mingw-w64<br />
+    <a href="https://sourceforge.net/projects/mingw-w64/files/i686-8.1.0-release-win32-sjlj-rt_v6-rev0.7z">Windows x86</a><br />
+    <a href="https://sourceforge.net/projects/mingw-w64/files/x86_64-8.1.0-release-win32-sjlj-rt_v6-rev0.7z">Windows x64</a><br />
+    both can compile 32-bit &amp; 64-bit binaries<br />
+    extract and place SppExtComObjHook folder inside mingw32 or mingw64 folder<br />
+    run <code>_compile.cmd</code></p>
+            <br />
+
+            <h3><a name="srcDebg"></a>SppExtComObjPatcher</h3>
+    <h4 id="visual-studio-1">Visual Studio:</h4>
+    <p>
+      <a href="https://forums.mydigitallife.net/posts/1457558/">https://forums.mydigitallife.net/posts/1457558/</a>
+      <br />
+      <a href="https://0x0.st/zHAP.7z">https://0x0.st/zHAP.7z</a>
+    </p>
+    <h4 id="mingw-gcc-1">MinGW GCC:</h4>
+    <p>
+      <a href="https://forums.mydigitallife.net/posts/1462101/">https://forums.mydigitallife.net/posts/1462101/</a>
+      <br />
+      <a href="https://0x0.st/zHAK.7z">https://0x0.st/zHAK.7z</a>
+    </p>
+    <hr />
+            <br />
+
+            <h1><a name="Credits"></a>Credits</h1>
+    <p>
+      <a href="https://forums.mydigitallife.net/posts/1508167/">namazso</a> - SppExtComObjHook, IFEO AVrf custom provider.<br />
+      <a href="https://forums.mydigitallife.net/posts/862774">qad</a> - SppExtComObjPatcher, IFEO Debugger.<br />
+      <a href="https://forums.mydigitallife.net/posts/1448556/">Mouri_Naruto</a> - SppExtComObjPatcher-DLL<br />
+      <a href="https://forums.mydigitallife.net/posts/1462101/">os51</a> - SppExtComObjPatcher ported to MinGW GCC, Retail/MAK checks examples.<br />
+      <a href="https://forums.mydigitallife.net/posts/309737/">MasterDisaster</a> - Original script, WMI methods.<br />
+      <a href="https://forums.mydigitallife.net/posts/1296482/">qewpal</a> - KMS-VL-ALL script.<br />
+      <a href="https://forums.mydigitallife.net/members/1108726/">Windows_Addict</a> - suggestions, ideas and documentation help.<br />
+      <a href="https://forums.mydigitallife.net/members/846864/">NormieLyfe</a> - GVLK categorize, Office checks help.<br />
+      <a href="https://forums.mydigitallife.net/members/2574/">mxman2k</a>, <a href="https://forums.mydigitallife.net/members/120394/">rpo</a>, <a href="https://forums.mydigitallife.net/members/presto1234.647219/">presto1234</a> - scripting suggestions.<br />
+      <a href="https://forums.mydigitallife.net/members/80361/">Nucleus</a>, <a href="https://forums.mydigitallife.net/members/104688/">Enthousiast</a>, <a href="https://forums.mydigitallife.net/members/293479/">s1ave77</a>, <a href="https://forums.mydigitallife.net/members/325887/">l33tisw00t</a>, <a href="https://forums.mydigitallife.net/members/77147/">LostED</a>, <a href="https://forums.mydigitallife.net/members/1023044/">Sajjo</a> and MDL Community for interest, feedback and assistance.</p>
+    <p>
+      <a href="https://forums.mydigitallife.net/posts/1343297/">abbodi1406</a> - KMS_VL_ALL author</p>
+
+            <h2><a name="acknow"></a>Acknowledgements</h2>
+    <p>
+      <a href="https://forums.mydigitallife.net/forums/51/">MDL forums</a> - the home of the latest and current emulators.<br />
+      <a href="https://forums.mydigitallife.net/posts/838505">mikmik38</a> - first reversed source of KMSv5 and KMSv6.<br />
+      <a href="https://forums.mydigitallife.net/threads/41010/">CODYQX4</a> - easy to use KMSEmulator source.<br />
+      <a href="https://forums.mydigitallife.net/threads/50234/">Hotbird64</a> - the resourceful vlmcsd tool, and KMSEmulator source development.<br />
+      <a href="https://forums.mydigitallife.net/threads/50949/">cynecx</a> - SECO Injector bypass, SppExtComObj KMS functions.<br />
+      <a href="https://forums.mydigitallife.net/posts/856978">deagles</a> - SppExtComObjHook Injector.<br />
+      <a href="https://forums.mydigitallife.net/posts/839363">deagles</a> - KMSServerService.<br />
+      <a href="https://forums.mydigitallife.net/posts/1475544/">ColdZero</a> - CZ VM System.<br />
+      <a href="https://forums.mydigitallife.net/posts/1476097/">ColdZero</a> - KMS ePID Generator.<br />
+      <a href="https://forums.mydigitallife.net/posts/838023">kelorgo</a>, <a href="http://forums.mydigitallife.net/posts/838114">bedrock</a> - TAP adapter TunMirror bypass.<br />
+      <a href="https://forums.mydigitallife.net/posts/1259604/">mishamosherg</a> - WinDivert FakeClient bypass.<br />
+      <a href="https://forums.mydigitallife.net/posts/860489">Duser</a> - KMS Emulator fork.<br />
+      ZWT, nosferati87, crony12, FreeStyler, Phazor - KMS Emulator development.</p>
+        </div>
+    </main>
+
+    <nav id="nav">
+        <div class="innertube">
+            <h1>Index</h1>
+            <a href="#Overview">Overview</a><br />
+            <a href="#How">How it works?</a><br />
+            <a href="#Supported">Supported Products</a><br />
+            <a href="#OfficeR2V">Office Retail to Volume</a><br />
+            <a href="#Using">How To Use</a><br /><br />
+            <a href="#Modes">Activation Modes</a><br />
+            &nbsp;&nbsp;&nbsp;<a href="#ModesAut">Auto Renewal</a><br />
+            &nbsp;&nbsp;&nbsp;<a href="#ModesMan">Manual</a><br />
+            &nbsp;&nbsp;&nbsp;<a href="#ModesExt">External</a><br /><br />
+            <a href="#Options">Additional Options</a><br />
+            &nbsp;&nbsp;&nbsp;<a href="#Unattend">Unattended</a><br />
+            &nbsp;&nbsp;&nbsp;<a href="#OptAct">Activation Choice</a><br />
+            &nbsp;&nbsp;&nbsp;<a href="#OptW10">KMS38 Win10</a><br />
+            &nbsp;&nbsp;&nbsp;<a href="#OptKMS">KMS Options</a><br /><br />
+            <a href="#Check">Check Activation Status</a><br />
+            <a href="#Setup">Setup Preactivate</a><br />
+            <a href="#Debug">Troubleshooting</a><br /><br />
+            <a href="#Source">Source Code</a><br />
+            &nbsp;&nbsp;<a href="#srcAvrf">SppExtComObjHookAvrf</a><br />
+            &nbsp;&nbsp;<a href="#srcDebg">SppExtComObjPatcher</a><br /><br />
+            <a href="#Credits">Credits</a><br />
+        </div>
+    </nav>
+  </body>
+</html>
+:readme:
+
 :E_Admin
 echo %_err%
 echo This script require administrator privileges.
@@ -2358,6 +2929,7 @@ echo %_err%
 echo Unsupported OS version Detected.
 echo Project is supported only for Windows 7/8/8.1/10 and their Server equivalent.
 :TheEnd
+if exist "%temp%\ReadMe.html" del /f /q "%temp%\ReadMe.html"
 echo.
 if %Unattend% EQU 0 echo Press any key to exit.
 %_Pause%
