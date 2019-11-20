@@ -258,7 +258,7 @@ cls&goto :DoActivate
 
 :MainMenu
 cls
-mode con cols=80 lines=30
+mode con cols=80 lines=31
 title KMS_VL_ALL_AIO %uivr%
 color 07
 set _dMode=Manual
@@ -1070,7 +1070,7 @@ goto :DoDebug
 )
 if %_verb% EQU 1 (
 if %Silent% EQU 0 if %_Debug% EQU 0 (
-mode con cols=100 lines=30
+mode con cols=100 lines=31
 %_Nul3% %_psc% "&%_buf%"
 )
 echo.&echo %line3%&echo.
@@ -1133,7 +1133,7 @@ if %winbuild% GEQ 9600 (
 )
 if %_verb% EQU 1 (
 if %Silent% EQU 0 if %_Debug% EQU 0 (
-mode con cols=100 lines=30
+mode con cols=100 lines=31
 )
 echo.&echo %line3%&echo.
 echo Uninstalling Local KMS Emulator...
@@ -1282,11 +1282,12 @@ echo %_TaskEx%
 goto :eof
 
 :CreateReadMe
-if exist "!_temp!\ReadMeAIO.html" del /f /q "!_temp!\ReadMeAIO.html"
-pushd %_temp%
+if exist not "%SystemDrive%\Users\Public\ReadMeAIO.html" (
+pushd %SystemDrive%\Users\Public
 %_Nul3% %_psc% "$f=[io.file]::ReadAllText('%~f0') -split ':readme\:.*';iex ($f[1]);"
 popd
-if exist "!_temp!\ReadMeAIO.html" start "" "!_temp!\ReadMeAIO.html"
+)
+if exist "%SystemDrive%\Users\Public\ReadMeAIO.html" start "" "%SystemDrive%\Users\Public\ReadMeAIO.html"
 goto :eof
 
 :CreateOEM
@@ -1864,7 +1865,7 @@ goto :%_sC2R%
 
 :casVm
 cls
-mode con cols=100 lines=30
+mode con cols=100 lines=31
 title Check Activation Status [vbs]
 %_Nul3% %_psc% "&%_buf%"
 setlocal EnableDelayedExpansion
@@ -1997,7 +1998,7 @@ goto :eof
 
 :casWm
 cls
-mode con cols=100 lines=30
+mode con cols=100 lines=31
 title Check Activation Status [wmic]
 %_Nul3% %_psc% "&%_buf%"
 setlocal
@@ -4161,7 +4162,7 @@ echo %_err%
 echo Unsupported OS version Detected.
 echo Project is supported only for Windows 7/8/8.1/10 and their Server equivalent.
 :TheEnd
-if exist "!_temp!\ReadMeAIO.html" del /f /q "!_temp!\ReadMeAIO.html"
+if exist "%SystemDrive%\Users\Public\ReadMeAIO.html" del /f /q "%SystemDrive%\Users\Public\ReadMeAIO.html"
 if exist "!_temp!\'" del /f /q "!_temp!\'"
 if exist "!_temp!\`.txt" del /f /q "!_temp!\`.txt"
 if defined _quit goto :eof
