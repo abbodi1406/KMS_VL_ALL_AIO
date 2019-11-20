@@ -1091,11 +1091,22 @@ goto :eof
 
 :CreateOEM
 cls
+set "_oem=!_work!"
+copy /y nul "!_work!\#.rw" 1>nul 2>nul && (if exist "!_work!\#.rw" del /f /q "!_work!\#.rw") || (set "_oem=!_dsk!")
+if exist "!_oem!\$OEM$\$$\Setup\Scripts\setupcomplete.cmd" (
+echo.
+echo setupcomplete.cmd already exist in $OEM$ Folder...
+echo "!_oem!\$OEM$"
+echo.
+echo manually remove it if you wish to create a fresh copy.
+echo.
+echo Press any key to continue...
+pause >nul
+goto :eof
+)
 echo.
 echo $OEM$ Folder Created...
 echo.
-set "_oem=!_work!"
-copy /y nul "!_work!\#.rw" 1>nul 2>nul && (if exist "!_work!\#.rw" del /f /q "!_work!\#.rw") || (set "_oem=!_dsk!")
 echo "!_oem!\$OEM$"
 if not exist "!_oem!\$OEM$\$$\Setup\Scripts\KMS_VL_ALL_AIO.cmd" mkdir ""!_oem!\$OEM$\$$\Setup\Scripts"
 copy /y "%~f0" "!_oem!\$OEM$\$$\Setup\Scripts\KMS_VL_ALL_AIO.cmd" %_Nul3%
@@ -1112,6 +1123,7 @@ goto :eof
 
 :casVm
 cls
+mode con cols=100 lines=35
 %_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.height=300;$W.buffersize=$B;}"
 setlocal EnableDelayedExpansion
 echo %line2%
@@ -1239,6 +1251,7 @@ goto :eof
 
 :casWm
 cls
+mode con cols=100 lines=35
 %_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.height=300;$W.buffersize=$B;}"
 setlocal
 set wspp=SoftwareLicensingProduct
