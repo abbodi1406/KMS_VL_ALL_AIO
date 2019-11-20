@@ -338,7 +338,7 @@ call :UpdateOSPPEntry osppsvc.exe
 )
 
 SET Win10Gov=0
-IF %winbuild% LSS 14393 GOTO :Main
+IF %winbuild% LSS 14393 if %SSppHook% NEQ 0 GOTO :Main
 
 SET "EditionWMI="
 SET "RegKey=HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages"
@@ -357,13 +357,14 @@ FOR /F "TOKENS=3 DELIMS=: " %%A IN ('DISM /English /Online /Get-CurrentEdition %
 FOR /F "TOKENS=2 DELIMS==" %%A IN ('"WMIC PATH SoftwareLicensingProduct WHERE (Name LIKE 'Windows%%' AND PartialProductKey is not NULL) GET LicenseFamily /VALUE" %_Nul6%') DO IF NOT ERRORLEVEL 1 SET "EditionWMI=%%A"
 IF NOT DEFINED EditionWMI (
 IF %winbuild% GEQ 17063 FOR /F "SKIP=2 TOKENS=3 DELIMS= " %%A IN ('REG QUERY "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v EditionId') DO SET "EditionID=%%A"
+IF %winbuild% LSS 14393 FOR /F "SKIP=2 TOKENS=3 DELIMS= " %%A IN ('REG QUERY "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v EditionId') DO SET "EditionID=%%A"
 GOTO :Main
 )
 FOR %%A IN (Cloud,CloudN,IoTEnterprise,IoTEnterpriseS,ProfessionalSingleLanguage,ProfessionalCountrySpecific) DO (IF /I "%EditionWMI%"=="%%A" GOTO :Main)
-SET EditionID=%EditionWMI%
-FOR %%A IN (EnterpriseG,EnterpriseGN) DO (IF /I "%EditionID%"=="%%A" SET Win10Gov=1)
+SET "EditionID=%EditionWMI%"
 
 :Main
+IF NOT DEFINED EditionID FOR %%A IN (EnterpriseG,EnterpriseGN) DO (IF /I "%EditionID%"=="%%A" SET Win10Gov=1)
 reg query HKLM\SOFTWARE\Microsoft\Office\ClickToRun\Configuration /v ProductReleaseIds %_Nul3% && set "_C2R=HKLM\SOFTWARE\Microsoft\Office\ClickToRun\Configuration"
 if not defined _C2R reg query HKLM\SOFTWARE\WOW6432Node\Microsoft\Office\ClickToRun\Configuration /v ProductReleaseIds %_Nul3% && set "_C2R=HKLM\SOFTWARE\WOW6432Node\Microsoft\Office\ClickToRun\Configuration"
 for %%A in (14,15,16,19) do call :officeLoc %%A
@@ -397,9 +398,8 @@ set WinVL=0
 set Off1ce=0
 if %winbuild% GEQ 9200 if %ActOffice% NEQ 0 (
 call :sppoff
-if !Off1ce! EQU 0 (echo.&echo !aword! Office 2013/2016/2019 Product Detected...)
 )
-wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name %_Nul2% | findstr /i Windows %_Nul1% && (set WinVL=1) || (echo.&echo No Supported KMS Client Windows Detected...)
+wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name %_Nul2% | findstr /i Windows %_Nul1% && (set WinVL=1) || (echo.&echo Windows %EditionID% edition do not support KMS activation...)
 if %Off1ce% EQU 0 if %WinVL% EQU 0 exit /b
 if %AUR% EQU 0 (
 reg delete "HKLM\%SPPk%\55c92734-d682-4d71-983e-d6ec3f16059f" /f %_Nul3%
@@ -442,8 +442,8 @@ set spp_offgl=1
 if %spp_off15% EQU 0 if %spp_off16% EQU 0 if %spp_off19% EQU 0 (set spp_offgl=0)
 if %spp_offgl% EQU 0 (
 set Off1ce=0
-if %loc_offgl% EQU 0 set "aword=No Installed"
-if %loc_offgl% EQU 1 set "aword=No Supported KMS Client"
+if %loc_offgl% EQU 0 (echo.&echo No Installed Office 2013/2016/2019 Product Detected...)
+if %loc_offgl% EQU 1 (echo.&echo Detected Office 2013/2016/2019 do not support KMS activation...&echo Retail Products need to be converted to Volume first.)
 )
 exit /b
 
@@ -528,7 +528,7 @@ set spp=OfficeSoftwareProtectionProduct
 set sps=OfficeSoftwareProtectionService
 if %winbuild% LSS 9200 (set "aword=2010/2013/2016/2019") else (set "aword=2010")
 if %OsppHook% EQU 0 (echo.&echo No Installed Office %aword% Product Detected...&exit /b)
-wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name /VALUE %_Nul3% || (echo.&echo No Supported KMS Client Office %aword% Product Detected...&exit /b)
+wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name /VALUE %_Nul3% || (echo.&echo Detected Office %aword% do not support KMS activation...&echo Retail Products need to be converted to Volume first.&exit /b)
 if %AUR% EQU 0 (
 reg delete "HKLM\%OSPP%\59a52881-a989-479d-af46-f275c6370663" /f %_Nul3%
 reg delete "HKLM\%OSPP%\0ff1ce15-a989-479d-af46-f275c6370663" /f %_Nul3%
@@ -790,17 +790,17 @@ call set ERRORCODE=!ERRORLEVEL!
 if %sps% EQU SoftwareLicensingService wmic path %sps% where version='%ver%' call RefreshLicenseStatus %_Nul3%
 for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where ID='%1' get GracePeriodRemaining /VALUE"') do (set gpr=%%x&set /a gpr2=%%x/1440)
 if %gpr% EQU 43200 if %office% EQU 0 if %winbuild% GEQ 9200 (
-echo Windows Core/ProfessionalWMC Activation Successful
+echo Product Activation Successful
 echo Remaining Period: 30 days ^(%gpr% minutes^)
 exit /b
 )
 if %gpr% EQU 64800 (
-echo Windows Core/ProfessionalWMC Activation Successful
+echo Product Activation Successful
 echo Remaining Period: 45 days ^(%gpr% minutes^)
 exit /b
 )
 if %gpr% GTR 259200 if %Win10Gov% EQU 1 (
-echo Windows 10 %EditionID% Activation Successful
+echo Product Activation Successful
 echo Remaining Period: %gpr2% days ^(%gpr% minutes^)
 exit /b
 )
