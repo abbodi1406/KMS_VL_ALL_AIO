@@ -201,7 +201,7 @@ for /f "tokens=2 delims==" %%# in ('findstr /i /b /c:"set KMS_ActivationInterval
 if %ActWindows% EQU 0 if %ActOffice% EQU 0 set ActWindows=1
 if %_Debug% EQU 1 if not defined fAUR set fAUR=0&set External=0
 if %Unattend% EQU 1 if not defined fAUR set fAUR=0&set External=0
-if not defined fAUR goto :cmdUI
+if not defined fAUR goto :MainMenu
 set Unattend=1
 set AUR=0
 if exist %_Hook% dir /b /al %_Hook% %_Nul3% || (
@@ -212,18 +212,9 @@ if %fAUR% EQU 1 (if %AUR% EQU 0 (set AUR=1&set _verb=1&set _rtr=DoActivate&cls&g
 if %External% EQU 0 (set AUR=0&cls&goto :DoActivate)
 cls&goto :DoActivate
 
-:cmdUI
-::  Set buffer height independently of window height
-::  https://stackoverflow.com/a/13351373
-::  Written by @dbenham (stackoverflow)
-echo.
-echo Initializing...
-mode con cols=80 lines=35
-%_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.height=300;$W.buffersize=$B;}"
-if %errorlevel% NEQ 0 goto :E_PS
-
 :MainMenu
 cls
+mode con cols=80 lines=35
 color 07
 title KMS_VL_ALL
 set AUR=0
@@ -328,6 +319,9 @@ if %_Debug% EQU 0 (title KMS_VL_ALL) else (title KMS_VL_ALL %mode%)
 if %winbuild% GEQ 9600 (
   reg add "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\CurrentVersion\Software Protection Platform" /f /v NoGenTicket /t REG_DWORD /d 1 %_Nul3%
 )
+if %Silent% EQU 0 if %_Debug% EQU 0 (
+%_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.height=300;$W.buffersize=$B;}"
+)
 echo.
 echo Activation Mode: %mode%
 call :StopService sppsvc
@@ -392,7 +386,7 @@ if %Unattend% NEQ 0 goto :TheEnd
 echo.
 echo Press any key to continue...
 pause >nul
-if %_verb% EQU 1 (goto :cmdUI) else (goto :MainMenu)
+goto :MainMenu
 
 :RunSPP
 set spp=SoftwareLicensingProduct
@@ -827,7 +821,7 @@ goto :eof
 :InstallHook
 if %_verb% EQU 1 (
 if %Silent% EQU 0 if %_Debug% EQU 0 (
-mode con cols=100 lines=35
+mode con cols=100
 %_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.height=300;$W.buffersize=$B;}"
 )
 echo.
@@ -885,8 +879,7 @@ if %winbuild% GEQ 9600 (
 )
 if %_verb% EQU 1 (
 if %Silent% EQU 0 if %_Debug% EQU 0 (
-mode con cols=100 lines=35
-%_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.height=300;$W.buffersize=$B;}"
+mode con cols=100
 )
 echo.
 echo Uninstalling Local KMS Emulator...
@@ -1006,7 +999,7 @@ call :cREG %_Nul3%
 echo.
 echo Press any key to continue...
 pause >nul
-if %_verb% EQU 1 (goto :cmdUI) else (goto :MainMenu)
+goto :MainMenu
 
 :CreateTask
 schtasks /query /tn "%_TaskEx%" %_Nul3% || (
@@ -1035,6 +1028,7 @@ goto :eof
 
 :casVm
 cls
+%_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.height=300;$W.buffersize=$B;}"
 setlocal EnableDelayedExpansion
 echo %line2%
 echo ***                   Windows Status                     ***
@@ -1161,6 +1155,7 @@ goto :eof
 
 :casWm
 cls
+%_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.height=300;$W.buffersize=$B;}"
 setlocal
 set wspp=SoftwareLicensingProduct
 set wsps=SoftwareLicensingService
