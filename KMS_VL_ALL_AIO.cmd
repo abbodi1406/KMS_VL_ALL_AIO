@@ -87,7 +87,7 @@ if %errorlevel% EQU 0 (
 echo.
 echo %_err%
 echo Disallowed special characters detected in file path name.
-echo Make sure file path name do not have following special characters,
+echo Make sure the path do not contain the following special characters,
 echo ^` ^~ ^! ^@ %% ^^ ^& ^( ^) [ ] { } ^+ ^= ^; ^' ^,
 echo.
 echo Press any key to exit.
@@ -108,7 +108,7 @@ set "_PSarg="""%~f0""" %_args:"="""%"
   exit /b
   ) || (
   call setlocal EnableDelayedExpansion
-  1>nul 2>nul powershell -noprofile -exec bypass Start-Process -FilePath 'cmd.exe' -ArgumentList '/c \"!_PSarg!\"' -Verb RunAs && (
+  1>nul 2>nul %SysPath%\WindowsPowerShell\v1.0\powershell -noprofile -exec bypass Start-Process -FilePath 'cmd.exe' -ArgumentList '/c \"!_PSarg!\"' -Verb RunAs && (
     exit /b
     ) || (
     goto :E_Admin
@@ -198,16 +198,17 @@ set _uAI=
 for /f "tokens=2 delims==" %%# in ('findstr /i /b /c:"set KMS_RenewalInterval" "%~f0"') do if not defined _uRI set _uRI=%%#
 for /f "tokens=2 delims==" %%# in ('findstr /i /b /c:"set KMS_ActivationInterval" "%~f0"') do if not defined _uAI set _uAI=%%#
 
+if %ActWindows% EQU 0 if %ActOffice% EQU 0 set ActWindows=1
 if %_Debug% EQU 1 if not defined fAUR set fAUR=0&set External=0
 if %Unattend% EQU 1 if not defined fAUR set fAUR=0&set External=0
 if not defined fAUR goto :cmdUI
 set Unattend=1
+if %fAUR% EQU 1 set AUR=1&set _verb=1&set _rtr=DoActivate&cls&goto :InstallHook
 set AUR=0
 if exist %_Hook% dir /b /al %_Hook% %_Nul3% || (
   reg query "%IFEO%\%SppVer%" /v KMS_Emulation %_Nul3% && set AUR=1
   reg query "%IFEO%\osppsvc.exe" /v KMS_Emulation %_Nul3% && set AUR=1
 )
-if %fAUR% EQU 1 set AUR=1&set _verb=1&set _rtr=DoActivate&cls&goto :InstallHook
 cls&goto :DoActivate
 
 :cmdUI
@@ -228,19 +229,19 @@ if exist %_Hook% dir /b /al %_Hook% %_Nul3% || (
   reg query "%IFEO%\%SppVer%" /v KMS_Emulation %_Nul3% && (set AUR=1&set _dMode=Auto Renewal)
   reg query "%IFEO%\osppsvc.exe" /v KMS_Emulation %_Nul3% && (set AUR=1&set _dMode=Auto Renewal)
 )
-if %ActWindows% EQU 0 if %ActOffice% EQU 0 set ActWindows=1
-if %ActWindows% EQU 0 (set _dAwin=No) else (set _dAwin=Yes)
-if %ActOffice% EQU 0 (set _dAoff=No) else (set _dAoff=Yes)
-if %SkipKMS38% EQU 0 (set _dWXKMS=No) else (set _dWXKMS=Yes)
-if %AUR% EQU 0 (set _dHook=Not Installed) else (set _dHook=Already Installed)
 set _ckc=
 if %AUR% EQU 0 (
+set _dHook=Not Installed
 set _ckc=1
 ) else (
+set _dHook=Already Installed
 reg query "HKLM\%SPPk%" /v KeyManagementServiceName /s %_Nul2% | findstr 172.16.0.2 %_Nul1% || set _ckc=1
 if %OSType% EQU Win8 reg query "HKU\S-1-5-20\%SPPk%" /v DiscoveredKeyManagementServiceIpAddress /s %_Nul2% | findstr 172.16.0.2 %_Nul1% || set _ckc=1
 if %OSType% EQU Win7 reg query "HKLM\%OSPP%" /v KeyManagementServiceName /s %_Nul2% | findstr 172.16.0.2 %_Nul1% || set _ckc=1
 )
+if %ActWindows% EQU 0 (set _dAwin=No) else (set _dAwin=Yes)
+if %ActOffice% EQU 0 (set _dAoff=No) else (set _dAoff=Yes)
+if %SkipKMS38% EQU 0 (set _dWXKMS=No) else (set _dWXKMS=Yes)
 set _el=
 echo.
 echo %line3%
@@ -253,9 +254,9 @@ echo %line4%
 echo.
 echo            Configuration:
 echo.
-echo      3. Process Windows         [%_dAwin%]
-echo      4. Process Office          [%_dAoff%]
-if %winbuild% GEQ 10240 echo      5. Skip Windows 10 KMS38   [%_dWXKMS%]
+echo      4. Process Windows         [%_dAwin%]
+echo      5. Process Office          [%_dAoff%]
+if %winbuild% GEQ 10240 echo      W. Skip Windows 10 KMS38   [%_dWXKMS%]
 echo %line4%
 echo.
 echo            Miscellaneous:
@@ -268,25 +269,26 @@ echo.
 echo      9. Activate: [External] Mode
 echo %line3%
 echo.
-choice /c 1234567890 /n /m "> Choose a menu option, or press 0 to quit: "
+choice /c 1234567890W /n /m "> Choose a menu option, or press 0 to quit: "
 set _el=%errorlevel%
+if %_el%==11 if %winbuild% GEQ 10240 (if %SkipKMS38% EQU 0 (set SkipKMS38=1) else (set SkipKMS38=0))&goto :MainMenu
 if %_el%==10 goto :eof
 if %_el%==9 goto :E_IP
-if %_el%==8 if %AUR% EQU 0 (cls&call :cCache)&goto :MainMenu
+if %_el%==8 if defined _ckc (cls&call :cCache)&goto :MainMenu
 if %_el%==7 (call :casWm)&goto :MainMenu
 if %_el%==6 (call :casVm)&goto :MainMenu
-if %_el%==5 if %winbuild% GEQ 10240 (if %SkipKMS38% EQU 0 (set SkipKMS38=1) else (set SkipKMS38=0))&goto :MainMenu
-if %_el%==4 (if %ActOffice% EQU 0 (set ActOffice=1) else (set ActWindows=1&set ActOffice=0))&goto :MainMenu
-if %_el%==3 (if %ActWindows% EQU 0 (set ActWindows=1) else (set ActWindows=0&set ActOffice=1))&goto :MainMenu
-if %_el%==2 (if %AUR% EQU 0 (set AUR=1&set _verb=1&set _rtr=DoActivate&cls&goto :InstallHook) else (set AUR=0&set _verb=1&cls&call :RemoveHook&call :cCache))&goto :MainMenu
-if %_el%==1 (cls&goto :DoActivate)&goto :MainMenu
+if %_el%==5 (if %ActOffice% EQU 0 (set ActOffice=1) else (set ActWindows=1&set ActOffice=0))&goto :MainMenu
+if %_el%==4 (if %ActWindows% EQU 0 (set ActWindows=1) else (set ActWindows=0&set ActOffice=1))&goto :MainMenu
+if %_el%==3 (set AUR=0&set _verb=1&cls&call :RemoveHook&call :cCache)&goto :MainMenu
+if %_el%==2 (if %AUR% EQU 0 (set AUR=1&set _verb=1&set _rtr=DoActivate&cls&goto :InstallHook) else (set _verb=0&set _rtr=DoActivate&cls&goto :InstallHook))&goto :MainMenu
+if %_el%==1 (cls&goto :DoActivate)
 goto :MainMenu
 
 :E_IP
 cls
 set kip=
 echo.
-echo Enter / Paste the external KMS Server address
+echo Enter or Paste the external KMS Server address:
 echo.
 set /p kip=
 if not defined kip goto :MainMenu
@@ -847,7 +849,7 @@ if %SSppHook% NEQ 0 call :CreateIFEOEntry %SppVer%
 if %AUR% EQU 1 (call :CreateIFEOEntry osppsvc.exe) else (if %OsppHook% NEQ 0 call :CreateIFEOEntry osppsvc.exe)
 if %AUR% EQU 1 if %OSType% EQU Win7 (
 call :CreateIFEOEntry SppExtComObj.exe
-if not exist %w7inf% (
+if %SSppHook% NEQ 0 if not exist %w7inf% (
   if %_verb% EQU 1 (echo.&echo Adding migration fail-safe...&echo %w7inf%)
   if not exist "%SystemRoot%\Migration\WTR" md "%SystemRoot%\Migration\WTR"
   (
@@ -872,7 +874,7 @@ if %winbuild% GEQ 9600 (
 )
 if %_verb% EQU 1 (
 echo.
-echo Removing Local KMS Emulator...
+echo Uninstalling Local KMS Emulator...
 echo.
 echo Removing Files%RemExc%...
 )
@@ -2347,7 +2349,7 @@ goto :eof
                End With
                .Terminate
            End With
-          CreateObject("Shell.Application").ShellExecute "cmd", "/c " & chr(34) & chr(34) & strArg("File") & chr(34) & strLine & chr(34), "", "runas", 1
+          CreateObject("Shell.Application").ShellExecute "cmd.exe", "/c " & chr(34) & chr(34) & strArg("File") & chr(34) & strLine & chr(34), "", "runas", 1
        </script>
    </job>
 </package>
