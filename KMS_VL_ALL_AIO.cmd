@@ -1358,7 +1358,7 @@ if not defined _wmi (
 goto :%_fC2R%
 )
 echo.
-echo Checking Office Click-to-Run...
+echo Converting Office Click-to-Run:
 set _Retail=0
 wmic path %_spp% where (ApplicationID='%_oApp%' AND LicenseStatus='1' AND PartialProductKey IS NOT NULL) get Description %_Nul2% |findstr /V /R "^$" >"!_temp!\crvRetail.txt"
 find /i "RETAIL channel" "!_temp!\crvRetail.txt" %_Nul1% && set _Retail=1
@@ -1388,7 +1388,6 @@ pushd %_copp%
 %_Nul3% del /f /q cleanospp.exe
 popd
 )
-set _C2rMsg=0
 set _O16O365=0
 if %_Retail% EQU 1 wmic path %_spp% where (ApplicationID='%_oApp%' AND LicenseStatus='1' AND PartialProductKey IS NOT NULL) get LicenseFamily %_Nul2% |findstr /V /R "^$" >"!_temp!\crvRetail.txt"
 wmic path %_spp% where (ApplicationID='%_oApp%') get LicenseFamily %_Nul2% |findstr /V /R "^$" >"!_temp!\crvVolume.txt" 2>&1
@@ -1453,15 +1452,11 @@ if %_Retail% EQU 1 reg query %_PRIDs%\ProPlusRetail.16 %_Nul3% && (
   find /i "Office16ProPlusVL_MAK" "!_temp!\crvRetail.txt" %_Nul1% && set _ProPlus=0
 )
 
-if %_C2rMsg% NEQ 2 for %%a in (%_RetIds%,ProPlus) do if !_%%a! EQU 1 (
+set _C2rMsg=0
+for %%a in (%_RetIds%,ProPlus) do if !_%%a! EQU 1 (
 set _C2rMsg=1
 )
-if %_C2rMsg% EQU 1 (
-echo Converting Retail-to-Volume:
-set _C2rMsg=2
-)
-
-if %_C2rMsg% NEQ 2 (if %_Office15% EQU 1 (goto :R15V) else (goto :GVLKC2R))
+if %_C2rMsg% NEQ 1 (if %_Office15% EQU 1 (goto :R15V) else (goto :GVLKC2R))
 
 if !_Mondo! EQU 1 (
 call :InsLic Mondo
@@ -1635,15 +1630,11 @@ if %_Retail% EQU 1 reg query %_PR15IDs%\Active\ProPlusRetail\x-none %_Nul3% && (
   find /i "OfficeProPlusVL_MAK" "!_temp!\crvRetail.txt" %_Nul1% && set _ProPlus=0
 )
 
-if %_C2rMsg% NEQ 2 for %%a in (%_R15Ids%,ProPlus) do if !_%%a! EQU 1 (
+set _C2rMsg=0
+for %%a in (%_R15Ids%,ProPlus) do if !_%%a! EQU 1 (
 set _C2rMsg=1
 )
-if %_C2rMsg% EQU 1 (
-echo Converting Retail-to-Volume:
-set _C2rMsg=2
-)
-
-if %_C2rMsg% NEQ 2 goto :GVLKC2R
+if %_C2rMsg% NEQ 1 goto :GVLKC2R
 
 if !_Mondo! EQU 1 (
 call :Ins15Lic Mondo
