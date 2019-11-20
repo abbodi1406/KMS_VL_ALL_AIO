@@ -3,17 +3,33 @@
 :: change to 1 to enable debug mode
 set _Debug=0
 
-:: change External to 1 and set KMS_IP address to activate via external KMS server
-set External=0
-set KMS_IP=172.16.0.2
+:: ### Configuration Options ###
 
 :: change to 0 to turn OFF Windows or Office activation via the script
-:: note: this not effective if Windows and/or Office installation is already Volume (GVLK installed)
+:: note: this is not effective if Windows and/or Office installation is already Volume (GVLK installed)
 set ActWindows=1
 set ActOffice=1
 
 :: change to 0 to revert Windows 10 KMS38 to normal KMS
 set SkipKMS38=1
+
+:: ### Unattended Options ###
+
+:: change External to 1 and set KMS_IP address to activate via external KMS server unattended
+set External=0
+set KMS_IP=172.16.0.2
+
+:: change to 1 to run AutoRenewal activation mode unattended
+set uAutoRenewal=0
+
+:: change to 1 to run Manual activation mode unattended
+set uManual=0
+
+:: change to 1 to suppress any output
+set Silent=0
+
+:: change to 1 to redirect output to text file, works only with Silent=1
+set Logger=0
 
 :: ### Advanced Options ###
 
@@ -36,8 +52,6 @@ set KMS_Port=1688
 
 set KMS_Emulation=1
 set Unattend=0
-set Silent=0
-set Logger=0
 
 set fAUR=
 set "_args=%*"
@@ -58,9 +72,12 @@ if /i "%%A"=="/d" (set _Debug=1
 ) else if /i "%%A"=="/a" (set fAUR=1&set External=0
 ) else (set "KMS_IP=%%A")
 )
-if defined fAUR set Unattend=1
 
 :NoProgArgs
+if %External% EQU 1 (if "%KMS_IP%"=="172.16.0.2" (set fAUR=0&set External=0) else (set fAUR=0))
+if %uManual% EQU 1 (set fAUR=0&set External=0)
+if %uAutoRenewal% EQU 1 (set fAUR=1&set External=0)
+if defined fAUR set Unattend=1
 set "SysPath=%SystemRoot%\System32"
 if exist "%SystemRoot%\Sysnative\reg.exe" (set "SysPath=%SystemRoot%\Sysnative")
 set "Path=%SysPath%;%SystemRoot%;%SysPath%\Wbem;%SystemRoot%\System32\WindowsPowerShell\v1.0\"
@@ -821,7 +838,7 @@ goto :eof
 :InstallHook
 if %_verb% EQU 1 (
 if %Silent% EQU 0 if %_Debug% EQU 0 (
-mode con cols=100
+mode con cols=100 lines=35
 %_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.height=300;$W.buffersize=$B;}"
 )
 echo.
@@ -879,7 +896,7 @@ if %winbuild% GEQ 9600 (
 )
 if %_verb% EQU 1 (
 if %Silent% EQU 0 if %_Debug% EQU 0 (
-mode con cols=100
+mode con cols=100 lines=35
 )
 echo.
 echo Uninstalling Local KMS Emulator...
