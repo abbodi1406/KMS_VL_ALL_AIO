@@ -282,9 +282,10 @@ echo.
 echo     [9] Activate: [External] Mode
 echo %line3%
 echo.
-choice /c 1234567890RW /n /m "> Choose a menu option, or press 0 to Exit: "
+choice /c 1234567890RSW /n /m "> Choose a menu option, or press 0 to Exit: "
 set _el=%errorlevel%
-if %_el%==12 if %winbuild% GEQ 10240 (if %SkipKMS38% EQU 0 (set SkipKMS38=1) else (set SkipKMS38=0))&goto :MainMenu
+if %_el%==13 if %winbuild% GEQ 10240 (if %SkipKMS38% EQU 0 (set SkipKMS38=1) else (set SkipKMS38=0))&goto :MainMenu
+if %_el%==12 (call :CreateOEM)&goto :MainMenu
 if %_el%==11 (call :CreateReadMe)&goto :MainMenu
 if %_el%==10 goto :eof
 if %_el%==9 goto :E_IP
@@ -1052,6 +1053,27 @@ pushd %temp%
 %_Nul3% powershell -noprofile -exec bypass -c "$f=[io.file]::ReadAllText('%~f0') -split ':readme\:.*';iex ($f[1]);"
 popd
 if exist "%temp%\ReadMe.html" start "" "%temp%\ReadMe.html"
+goto :eof
+
+:CreateOEM
+cls
+echo.
+echo Creating $OEM$ Folder...
+echo.
+set "_oem=!_work!"
+copy /y nul "!_work!\#.rw" 1>nul 2>nul && (if exist "!_work!\#.rw" del /f /q "!_work!\#.rw") || (set "_oem=%SystemDrive%\Users\Public\Desktop")
+echo "!_oem!\$OEM$"
+if not exist "!_oem!\$OEM$\$$\Setup\Scripts\KMS_VL_ALL_AIO.cmd" mkdir ""!_oem!\$OEM$\$$\Setup\Scripts"
+copy /y "%~f0" "!_oem!\$OEM$\$$\Setup\Scripts\KMS_VL_ALL_AIO.cmd" %_Nul3%
+(
+echo @echo off
+echo call %%~dp0KMS_VL_ALL_AIO.cmd /s /a
+echo cd \
+echo ^(goto^) 2^>nul^&rd /s /q "%%~dp0"
+)>"!_oem!\$OEM$\$$\Setup\Scripts\setupcomplete.cmd"
+echo.
+echo Press any key to continue...
+pause >nul
 goto :eof
 
 :casVm
