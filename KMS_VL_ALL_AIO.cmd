@@ -1,4 +1,5 @@
 <!-- : Begin batch script
+@set uivr=v35
 @echo off
 :: ### Configuration Options ###
 
@@ -49,7 +50,6 @@ set KMS_Port=1688
 :: # NORMALY THERE IS NO NEED TO CHANGE ANYTHING BELOW THIS COMMENT #
 :: ##################################################################
 
-set uivr=v35
 set KMS_Emulation=1
 set Unattend=0
 
@@ -140,7 +140,7 @@ set "_temp=%SystemRoot%\Temp"
 set "_log=%~dpn0"
 set "_work=%~dp0"
 if "%_work:~-1%"=="\" set "_work=%_work:~0,-1%"
-for /f "tokens=2*" %%a in ('reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" /v Desktop') do call set "_dsk=%%b"
+for /f "skip=2 tokens=2*" %%a in ('reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" /v Desktop') do call set "_dsk=%%b"
 if exist "%SystemDrive%\Users\Public\Desktop\desktop.ini" set "_dsk=%SystemDrive%\Users\Public\Desktop"
 set "_suf="
 setlocal EnableDelayedExpansion
@@ -180,6 +180,9 @@ if %_Debug% EQU 0 (
 
 :Begin
 if %_Debug% EQU 1 if defined _args echo %_args%
+set "_wApp=55c92734-d682-4d71-983e-d6ec3f16059f"
+set "_oApp=0ff1ce15-a989-479d-af46-f275c6370663"
+set "_oA14=59a52881-a989-479d-af46-f275c6370663"
 set "IFEO=HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options"
 set "OSPP=SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform"
 set "SPPk=SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform"
@@ -383,6 +386,7 @@ call :UpdateOSPPEntry osppsvc.exe
 SET Win10Gov=0
 IF %winbuild% LSS 14393 if %SSppHook% NEQ 0 GOTO :Main
 SET "EditionWMI="
+SET "EditionID="
 SET "RegKey=HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\Packages"
 SET "Pattern=Microsoft-Windows-*Edition~31bf3856ad364e35"
 SET "EditionPKG=NUL"
@@ -396,7 +400,7 @@ SET "EditionID=%EditionPKG:~0,-7%"
 ) ELSE (
 FOR /F "TOKENS=3 DELIMS=: " %%A IN ('DISM /English /Online /Get-CurrentEdition %_Nul6% ^| FIND /I "Current Edition :"') DO SET "EditionID=%%A"
 )
-FOR /F "TOKENS=2 DELIMS==" %%A IN ('"WMIC PATH SoftwareLicensingProduct WHERE (Name LIKE 'Windows%%' AND PartialProductKey is not NULL) GET LicenseFamily /VALUE" %_Nul6%') DO IF NOT ERRORLEVEL 1 SET "EditionWMI=%%A"
+FOR /F "TOKENS=2 DELIMS==" %%A IN ('"WMIC PATH SoftwareLicensingProduct WHERE (ApplicationId='%_wApp%' AND PartialProductKey is not NULL) GET LicenseFamily /VALUE" %_Nul6%') DO IF NOT ERRORLEVEL 1 SET "EditionWMI=%%A"
 IF NOT DEFINED EditionWMI (
 IF %winbuild% GEQ 17063 FOR /F "SKIP=2 TOKENS=3 DELIMS= " %%A IN ('REG QUERY "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v EditionId') DO SET "EditionID=%%A"
 IF %winbuild% LSS 14393 FOR /F "SKIP=2 TOKENS=3 DELIMS= " %%A IN ('REG QUERY "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v EditionId') DO SET "EditionID=%%A"
@@ -407,6 +411,9 @@ SET "EditionID=%EditionWMI%"
 
 :Main
 IF DEFINED EditionID FOR %%A IN (EnterpriseG,EnterpriseGN) DO (IF /I "%EditionID%"=="%%A" SET Win10Gov=1)
+IF DEFINED EditionID (set "_winos=Windows %EditionID% edition") else (set "_winos=Detected Windows")
+if %winbuild% LSS 10240 for /f "skip=2 tokens=2*" %%a in ('reg query "hklm\software\microsoft\Windows NT\currentversion" /v productname %_Nul6%') do if not errorlevel 1 set "_winos=%%b"
+if %winbuild% GEQ 10240 for /f "tokens=2* delims== " %%a in ('"wmic os get caption /value" %_Nul6%') do if not errorlevel 1 set "_winos=%%b"
 reg query HKLM\SOFTWARE\Microsoft\Office\ClickToRun\Configuration /v ProductReleaseIds %_Nul3% && set "_C2R=HKLM\SOFTWARE\Microsoft\Office\ClickToRun\Configuration"
 if not defined _C2R reg query HKLM\SOFTWARE\WOW6432Node\Microsoft\Office\ClickToRun\Configuration /v ProductReleaseIds %_Nul3% && set "_C2R=HKLM\SOFTWARE\WOW6432Node\Microsoft\Office\ClickToRun\Configuration"
 for %%A in (14,15,16,19) do call :officeLoc %%A
@@ -441,26 +448,26 @@ set Off1ce=0
 if %winbuild% GEQ 9200 if %ActOffice% NEQ 0 (
 call :sppoff
 )
-wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name %_Nul2% | findstr /i Windows %_Nul1% && (set WinVL=1) || (echo.&echo Windows %EditionID% edition does not support KMS activation...)
+wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name %_Nul2% | findstr /i Windows %_Nul1% && (set WinVL=1) || (echo.&echo %_winos% does not support KMS activation...)
 if %Off1ce% EQU 0 if %WinVL% EQU 0 exit /b
 if %AUR% EQU 0 (
-reg delete "HKLM\%SPPk%\55c92734-d682-4d71-983e-d6ec3f16059f" /f %_Nul3%
-reg delete "HKLM\%SPPk%\0ff1ce15-a989-479d-af46-f275c6370663" /f %_Nul3%
+reg delete "HKLM\%SPPk%\%_wApp%" /f %_Nul3%
+reg delete "HKLM\%SPPk%\%_oApp%" /f %_Nul3%
 )
-wmic path %spp% where (Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL) get Name %_Nul2% | findstr /i Windows %_Nul1% && (set gvlk=1) || (set gvlk=0)
+wmic path %spp% where (Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL) get Name %_Nul2% | findstr /i Windows %_Nul1% && (set _gvlk=1) || (set _gvlk=0)
 set gpr=0
-if %winbuild% GEQ 10240 if %SkipKMS38% NEQ 0 if %gvlk% EQU 1 for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (Description like '%%KMSCLIENT%%' and Name like 'Windows%%' and PartialProductKey is not NULL) get GracePeriodRemaining /VALUE" %_Nul6%') do set "gpr=%%A"
+if %winbuild% GEQ 10240 if %SkipKMS38% NEQ 0 if %_gvlk% EQU 1 for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (ApplicationId='%_wApp%' and Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL) get GracePeriodRemaining /VALUE" %_Nul6%') do set "gpr=%%A"
 if %gpr% NEQ 0 if %gpr% GTR 259200 (
 set W1nd0ws=0
-wmic path %spp% where "Description like '%%KMSCLIENT%%' and Name like 'Windows%%' and PartialProductKey is not NULL" get LicenseFamily %_Nul2% | findstr /i EnterpriseG %_Nul1% && (call set W1nd0ws=1)
+wmic path %spp% where "ApplicationId='%_wApp%' and Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL" get LicenseFamily %_Nul2% | findstr /i EnterpriseG %_Nul1% && (call set W1nd0ws=1)
 )
 for /f "tokens=2 delims==" %%A in ('"wmic path %sps% get Version /VALUE"') do set ver=%%A
 wmic path %sps% where version='%ver%' call SetKeyManagementServiceMachine MachineName="%KMS_IP%" %_Nul3%
 wmic path %sps% where version='%ver%' call SetKeyManagementServicePort %KMS_Port% %_Nul3%
-if %W1nd0ws% EQU 0 for /f "tokens=2 delims==" %%G in ('"wmic path %spp% where (Description like '%%KMSCLIENT%%' and Name like 'Windows%%') get ID /VALUE"') do (set app=%%G&call :sppchkwin)
-if %W1nd0ws% EQU 1 if %ActWindows% NEQ 0 for /f "tokens=2 delims==" %%G in ('"wmic path %spp% where (Description like '%%KMSCLIENT%%' and Name like 'Windows%%') get ID /VALUE"') do (set app=%%G&call :sppchkwin)
+if %W1nd0ws% EQU 0 for /f "tokens=2 delims==" %%G in ('"wmic path %spp% where (ApplicationId='%_wApp%' and Description like '%%KMSCLIENT%%') get ID /VALUE"') do (set app=%%G&call :sppchkwin)
+if %W1nd0ws% EQU 1 if %ActWindows% NEQ 0 for /f "tokens=2 delims==" %%G in ('"wmic path %spp% where (ApplicationId='%_wApp%' and Description like '%%KMSCLIENT%%') get ID /VALUE"') do (set app=%%G&call :sppchkwin)
 if %W1nd0ws% EQU 1 if %ActWindows% EQU 0 (echo.&echo Windows activation is OFF...)
-if %Off1ce% EQU 1 if %ActOffice% NEQ 0 for /f "tokens=2 delims==" %%G in ('"wmic path %spp% where (Description like '%%KMSCLIENT%%' and Name like 'Office%%') get ID /VALUE"') do (set app=%%G&call :sppchkoff)
+if %Off1ce% EQU 1 if %ActOffice% NEQ 0 for /f "tokens=2 delims==" %%G in ('"wmic path %spp% where (ApplicationId='%_oApp%' and Description like '%%KMSCLIENT%%') get ID /VALUE"') do (set app=%%G&call :sppchkoff)
 if %AUR% EQU 0 (
 call :cKMS %_Nul3%
 call :cREG %_Nul3%
@@ -494,18 +501,18 @@ wmic path %spp% where ID='%app%' get Name > "!_temp!\sppchk.txt"
 find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off15% EQU 0 exit /b)
 find /i "Office 16" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off16% EQU 0 exit /b)
 find /i "Office 19" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off19% EQU 0 exit /b)
-set office=1
+set _office=1
 wmic path %spp% where (PartialProductKey is not NULL) get ID %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate %app%&exit /b)
 for /f "tokens=3 delims==, " %%G in ('"wmic path %spp% where ID='%app%' get Name /value"') do set OffVer=%%G
 call :offchk%OffVer%
 exit /b
 
 :sppchkwin
-set office=0
-if %winbuild% GEQ 14393 if %gvlk% EQU 0 wmic path %spp% where (Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL) get Name %_Nul2% | findstr /i Windows %_Nul1% && (set gvlk=1)
+set _office=0
+if %winbuild% GEQ 14393 if %_gvlk% EQU 0 wmic path %spp% where (Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL) get Name %_Nul2% | findstr /i Windows %_Nul1% && (set _gvlk=1)
 wmic path %spp% where ID='%app%' get LicenseStatus %_Nul2% | findstr "1" %_Nul1% && (echo.&call :activate %app%&exit /b)
 wmic path %spp% where (PartialProductKey is not NULL) get ID %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate %app%&exit /b)
-if %gvlk% EQU 1 exit /b
+if %_gvlk% EQU 1 exit /b
 if %WinPerm% EQU 1 exit /b
 if %winbuild% LSS 10240 (call :winchk&exit /b)
 for %%A in (
@@ -542,15 +549,14 @@ exit /b
 
 :winchk
 if not defined tok (if %winbuild% GEQ 9200 (set "tok=4") else (set "tok=7"))
-if not defined wApp set wApp=55c92734-d682-4d71-983e-d6ec3f16059f
 wmic path %spp% where (LicenseStatus='1' and Description like '%%KMSCLIENT%%') get Name %_Nul2% | findstr /i "Windows" %_Nul3% && (exit /b)
 echo.
 wmic path %spp% where (LicenseStatus='1' and GracePeriodRemaining='0' and PartialProductKey is not NULL) get Name %_Nul2% | findstr /i "Windows" %_Nul3% && (
 set WinPerm=1
 )
 if %WinPerm% EQU 0 (
-wmic path %spp% where "ApplicationID='%wApp%' and LicenseStatus='1'" get Name %_Nul2% | findstr /i "Windows" %_Nul3% && (
-for /f "tokens=%tok% delims=, " %%G in ('"wmic path %spp% where (ApplicationID='%wApp%' and LicenseStatus='1') get Description /VALUE"') do set "channel=%%G"
+wmic path %spp% where "ApplicationID='%_wApp%' and LicenseStatus='1'" get Name %_Nul2% | findstr /i "Windows" %_Nul3% && (
+for /f "tokens=%tok% delims=, " %%G in ('"wmic path %spp% where (ApplicationID='%_wApp%' and LicenseStatus='1') get Description /VALUE"') do set "channel=%%G"
   for %%A in (VOLUME_MAK, RETAIL, OEM_DM, OEM_SLP, OEM_COA, OEM_COA_SLP, OEM_COA_NSLP, OEM_NONSLP, OEM) do if /i "%%A"=="!channel!" set WinPerm=1
   )
 )
@@ -559,7 +565,7 @@ copy /y %SysPath%\slmgr.vbs "!_temp!\slmgr.vbs" %_Nul3%
 cscript //nologo "!_temp!\slmgr.vbs" /xpr %_Nul2% | findstr /i "permanently" %_Nul3% && set WinPerm=1
 )
 if %WinPerm% EQU 1 (
-for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where (ApplicationID='%wApp%' and LicenseStatus='1') get Name /VALUE"') do echo Checking: %%x
+for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where (ApplicationID='%_wApp%' and LicenseStatus='1') get Name /VALUE"') do echo Checking: %%x
 echo Product is Permanently Activated.
 exit /b
 )
@@ -573,8 +579,8 @@ if %winbuild% LSS 9200 (set "aword=2010/2013/2016/2019") else (set "aword=2010")
 if %OsppHook% EQU 0 (echo.&echo No Installed Office %aword% Product Detected...&exit /b)
 wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name /VALUE %_Nul3% || (echo.&echo Detected Office %aword% do not support KMS activation...&echo Retail Products need to be converted to Volume first.&exit /b)
 if %AUR% EQU 0 (
-reg delete "HKLM\%OSPP%\59a52881-a989-479d-af46-f275c6370663" /f %_Nul3%
-reg delete "HKLM\%OSPP%\0ff1ce15-a989-479d-af46-f275c6370663" /f %_Nul3%
+reg delete "HKLM\%OSPP%\%_oA14%" /f %_Nul3%
+reg delete "HKLM\%OSPP%\%_oApp%" /f %_Nul3%
 )
 for /f "tokens=2 delims==" %%A in ('"wmic path %sps% get Version /VALUE" %_Nul6%') do set ver=%%A
 wmic path %sps% where version='%ver%' call SetKeyManagementServiceMachine MachineName="%KMS_IP%" %_Nul3%
@@ -595,7 +601,7 @@ find /i "Office 14" "!_temp!\osppchk.txt" %_Nul1% && (if %loc_off14% EQU 0 exit 
 find /i "Office 15" "!_temp!\osppchk.txt" %_Nul1% && (if %loc_off15% EQU 0 exit /b)
 find /i "Office 16" "!_temp!\osppchk.txt" %_Nul1% && (if %loc_off16% EQU 0 exit /b)
 find /i "Office 19" "!_temp!\osppchk.txt" %_Nul1% && (if %loc_off19% EQU 0 exit /b)
-set office=0
+set _office=0
 wmic path %spp% where (PartialProductKey is not NULL) get ID | findstr /i "%app%" %_Nul3% && (echo.&call :activate %app%&exit /b)
 for /f "tokens=3 delims==, " %%G in ('"wmic path %spp% where ID='%app%' get Name /value"') do set OffVer=%%G
 call :offchk%OffVer%
@@ -781,8 +787,8 @@ if defined _C2R reg query %_C2R% /v ProductReleaseIds %_Nul2% | findstr 2019 %_N
 exit /b
 )
 
-for /f "tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\%1.0\Common\InstallRoot /v Path" %_Nul6%') do if exist "%%b\OSPP.VBS" set loc_off%1=1
-for /f "tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Wow6432Node\Microsoft\Office\%1.0\Common\InstallRoot /v Path" %_Nul6%') do if exist "%%b\OSPP.VBS" set loc_off%1=1
+for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\%1.0\Common\InstallRoot /v Path" %_Nul6%') do if exist "%%b\OSPP.VBS" set loc_off%1=1
+for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Wow6432Node\Microsoft\Office\%1.0\Common\InstallRoot /v Path" %_Nul6%') do if exist "%%b\OSPP.VBS" set loc_off%1=1
 
 if %1 EQU 16 if defined _C2R (
 for /f "skip=2 tokens=2*" %%a in ('reg query %_C2R% /v ProductReleaseIds') do echo %%b> "!_temp!\c2rchk.txt"
@@ -803,7 +809,7 @@ echo.
 set "key="
 for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where ID='%1' get Name /VALUE"') do echo Installing Key for: %%A
 call :keys %1
-if "%key%" EQU "" (echo Could not find matching KMS Client key&exit /b)
+if "%key%"=="" (echo Could not find matching KMS Client key&exit /b)
 wmic path %sps% where version='%ver%' call InstallProductKey ProductKey="%key%" %_Nul3%
 set ERRORCODE=%ERRORLEVEL%
 if %ERRORCODE% NEQ 0 (
@@ -815,7 +821,7 @@ exit /b
 :activate
 wmic path %spp% where ID='%1' call ClearKeyManagementServiceMachine %_Nul3%
 wmic path %spp% where ID='%1' call ClearKeyManagementServicePort %_Nul3%
-if %W1nd0ws% EQU 0 if %office% EQU 0 if %sps% EQU SoftwareLicensingService (
+if %W1nd0ws% EQU 0 if %_office% EQU 0 if %sps% EQU SoftwareLicensingService (
 wmic path %spp% where ID='%1' call SetKeyManagementServiceMachine MachineName="127.0.0.2" %_Nul3%
 wmic path %spp% where ID='%1' call SetKeyManagementServicePort %KMS_Port% %_Nul3%
 for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where ID='%1' get Name /VALUE"') do echo Checking: %%x
@@ -832,7 +838,7 @@ call set ERRORCODE=!ERRORLEVEL!
 )
 if %sps% EQU SoftwareLicensingService wmic path %sps% where version='%ver%' call RefreshLicenseStatus %_Nul3%
 for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where ID='%1' get GracePeriodRemaining /VALUE"') do (set gpr=%%x&set /a gpr2=%%x/1440)
-if %gpr% EQU 43200 if %office% EQU 0 if %winbuild% GEQ 9200 (
+if %gpr% EQU 43200 if %_office% EQU 0 if %winbuild% GEQ 9200 (
 echo Product Activation Successful
 echo Remaining Period: 30 days ^(%gpr% minutes^)
 exit /b
@@ -1028,14 +1034,14 @@ wmic path %sps% where version='%ver%' call DisableKeyManagementServiceHostCachin
 goto :eof
 
 :cREG
-reg delete "HKLM\%SPPk%\55c92734-d682-4d71-983e-d6ec3f16059f" /f
-reg delete "HKLM\%SPPk%\0ff1ce15-a989-479d-af46-f275c6370663" /f
+reg delete "HKLM\%SPPk%\%_wApp%" /f
+reg delete "HKLM\%SPPk%\%_oApp%" /f
 reg delete "HKLM\%SPPk%" /f /v KeyManagementServiceName
 reg delete "HKLM\%SPPk%" /f /v KeyManagementServicePort
-reg delete "HKU\S-1-5-20\%SPPk%\55c92734-d682-4d71-983e-d6ec3f16059f" /f
-reg delete "HKU\S-1-5-20\%SPPk%\0ff1ce15-a989-479d-af46-f275c6370663" /f
-reg delete "HKLM\%OSPP%\59a52881-a989-479d-af46-f275c6370663" /f
-reg delete "HKLM\%OSPP%\0ff1ce15-a989-479d-af46-f275c6370663" /f
+reg delete "HKU\S-1-5-20\%SPPk%\%_wApp%" /f
+reg delete "HKU\S-1-5-20\%SPPk%\%_oApp%" /f
+reg delete "HKLM\%OSPP%\%_oA14%" /f
+reg delete "HKLM\%OSPP%\%_oApp%" /f
 reg delete "HKLM\%OSPP%" /f /v KeyManagementServiceName
 reg delete "HKLM\%OSPP%" /f /v KeyManagementServicePort
 if %OsppHook% EQU 0 (
@@ -1137,7 +1143,7 @@ echo %line3%
 
 :casVo16
 set office=
-for /f "tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\16.0\Common\InstallRoot /v Path" 2^>nul') do (set "office=%%b")
+for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\16.0\Common\InstallRoot /v Path" 2^>nul') do (set "office=%%b")
 if exist "!office!\ospp.vbs" (
 echo.
 echo %line2%
@@ -1147,7 +1153,7 @@ cscript //nologo "!office!\ospp.vbs" /dstatus
 )
 if %wow%==0 goto :casVo13
 set office=
-for /f "tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Wow6432Node\Microsoft\Office\16.0\Common\InstallRoot /v Path" 2^>nul') do (set "office=%%b")
+for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Wow6432Node\Microsoft\Office\16.0\Common\InstallRoot /v Path" 2^>nul') do (set "office=%%b")
 if exist "!office!\ospp.vbs" (
 echo.
 echo %line2%
@@ -1158,7 +1164,7 @@ cscript //nologo "!office!\ospp.vbs" /dstatus
 
 :casVo13
 set office=
-for /f "tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\15.0\Common\InstallRoot /v Path" 2^>nul') do (set "office=%%b")
+for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\15.0\Common\InstallRoot /v Path" 2^>nul') do (set "office=%%b")
 if exist "!office!\ospp.vbs" (
 echo.
 echo %line2%
@@ -1168,7 +1174,7 @@ cscript //nologo "!office!\ospp.vbs" /dstatus
 )
 if %wow%==0 goto :casVo10
 set office=
-for /f "tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Wow6432Node\Microsoft\Office\15.0\Common\InstallRoot /v Path" 2^>nul') do (set "office=%%b")
+for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Wow6432Node\Microsoft\Office\15.0\Common\InstallRoot /v Path" 2^>nul') do (set "office=%%b")
 if exist "!office!\ospp.vbs" (
 echo.
 echo %line2%
@@ -1179,7 +1185,7 @@ cscript //nologo "!office!\ospp.vbs" /dstatus
 
 :casVo10
 set office=
-for /f "tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\14.0\Common\InstallRoot /v Path" 2^>nul') do (set "office=%%b")
+for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\14.0\Common\InstallRoot /v Path" 2^>nul') do (set "office=%%b")
 if exist "!office!\ospp.vbs" (
 echo.
 echo %line2%
@@ -1189,7 +1195,7 @@ cscript //nologo "!office!\ospp.vbs" /dstatus
 )
 if %wow%==0 goto :casVc16
 set office=
-for /f "tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Wow6432Node\Microsoft\Office\14.0\Common\InstallRoot /v Path" 2^>nul') do (set "office=%%b")
+for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Wow6432Node\Microsoft\Office\14.0\Common\InstallRoot /v Path" 2^>nul') do (set "office=%%b")
 if exist "!office!\ospp.vbs" (
 echo.
 echo %line2%
@@ -1201,7 +1207,7 @@ cscript //nologo "!office!\ospp.vbs" /dstatus
 :casVc16
 reg query HKLM\SOFTWARE\Microsoft\Office\ClickToRun /v InstallPath >nul 2>&1 || goto :casVc13
 set office=
-for /f "tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\ClickToRun /v InstallPath" 2^>nul') do (set "office=%%b\Office16")
+for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\ClickToRun /v InstallPath" 2^>nul') do (set "office=%%b\Office16")
 if exist "!office!\ospp.vbs" (
 echo.
 echo %line2%
