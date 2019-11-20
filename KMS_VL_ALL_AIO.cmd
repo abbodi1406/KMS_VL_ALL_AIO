@@ -415,6 +415,7 @@ IF DEFINED EditionID FOR %%A IN (EnterpriseG,EnterpriseGN) DO (IF /I "%EditionID
 IF DEFINED EditionID (set "_winos=Windows %EditionID% edition") else (set "_winos=Detected Windows")
 if %winbuild% LSS 10240 for /f "skip=2 tokens=2*" %%a in ('reg query "hklm\software\microsoft\Windows NT\currentversion" /v productname %_Nul6%') do if not errorlevel 1 set "_winos=%%b"
 if %winbuild% GEQ 10240 for /f "tokens=2* delims== " %%a in ('"wmic os get caption /value" %_Nul6%') do if not errorlevel 1 set "_winos=%%b"
+set "nKMS=does not support KMS activation..."
 reg query HKLM\SOFTWARE\Microsoft\Office\ClickToRun\Configuration /v ProductReleaseIds %_Nul3% && set "_C16R=HKLM\SOFTWARE\Microsoft\Office\ClickToRun\Configuration"
 if not defined _C16R reg query HKLM\SOFTWARE\WOW6432Node\Microsoft\Office\ClickToRun\Configuration /v ProductReleaseIds %_Nul3% && set "_C16R=HKLM\SOFTWARE\WOW6432Node\Microsoft\Office\ClickToRun\Configuration"
 reg query HKLM\SOFTWARE\Microsoft\Office\15.0\ClickToRun\Configuration /v ProductReleaseIds %_Nul3% && set "_C15R=HKLM\SOFTWARE\Microsoft\Office\15.0\ClickToRun\Configuration"
@@ -453,7 +454,7 @@ set RunR2V=0
 if %winbuild% GEQ 9200 if %ActOffice% NEQ 0 (
 call :sppoff
 )
-wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name %_Nul2% | findstr /i Windows %_Nul1% && (set WinVL=1) || (echo.&echo %_winos% does not support KMS activation...)
+wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name %_Nul2% | findstr /i Windows %_Nul1% && (set WinVL=1) || (echo.&echo %_winos% %nKMS%)
 if %Off1ce% EQU 0 if %WinVL% EQU 0 exit /b
 if %AUR% EQU 0 (
 reg delete "HKLM\%SPPk%\%_wApp%" /f %_Nul3%
@@ -483,6 +484,8 @@ wmic path %sps% where version='%ver%' call DisableKeyManagementServiceHostCachin
 exit /b
 
 :sppoff
+set _sC2R=sppoff
+set _fC2R=ReturnSPP
 set spp_off15=0&set spp_off16=0&set spp_off19=0
 wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name > "!_temp!\sppchk.txt" 2>&1
 find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (set spp_off15=1)
@@ -504,15 +507,13 @@ set Off1ce=0
 :: nothing installed scenario
 if %loc_offgl% EQU 0 (echo.&echo No Installed Office 2013/2016/2019 Product Detected...&exit /b)
 :: Retail C2R scenario
-set _sC2R=sppoff
-set _fC2R=ReturnSPP
 if %RunR2V% EQU 0 goto :C2RR2V
 :ReturnSPP
 echo.
 :: Retail MSI scenario or failed C2R-R2V scenario
-if %loc_off15% EQU 1 if %spp_off15% EQU 0 Detected Office 2013 does not support KMS activation...
-if %loc_off16% EQU 1 if %spp_off16% EQU 0 Detected Office 2016 does not support KMS activation...
-if %loc_off19% EQU 1 if %spp_off19% EQU 0 Detected Office 2019 does not support KMS activation...
+if %loc_off15% EQU 1 if %spp_off15% EQU 0 echo Detected Office 2013 %nKMS%
+if %loc_off16% EQU 1 if %spp_off16% EQU 0 echo Detected Office 2016 %nKMS%
+if %loc_off19% EQU 1 if %spp_off19% EQU 0 echo Detected Office 2019 %nKMS%
 echo Retail Products need to be converted to Volume first.
 exit /b
 
@@ -522,7 +523,7 @@ find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off15% EQU 0 exit /
 find /i "Office 16" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off16% EQU 0 exit /b)
 find /i "Office 19" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off19% EQU 0 exit /b)
 set _office=1
-wmic path %spp% where (PartialProductKey is not NULL) get ID %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate %app%&exit /b)
+wmic path %spp% where (PartialProductKey is not NULL) get ID %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate&exit /b)
 for /f "tokens=3 delims==, " %%G in ('"wmic path %spp% where ID='%app%' get Name /value"') do set OffVer=%%G
 call :offchk%OffVer%
 exit /b
@@ -530,8 +531,8 @@ exit /b
 :sppchkwin
 set _office=0
 if %winbuild% GEQ 14393 if %_gvlk% EQU 0 wmic path %spp% where (Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL) get Name %_Nul2% | findstr /i Windows %_Nul1% && (set _gvlk=1)
-wmic path %spp% where ID='%app%' get LicenseStatus %_Nul2% | findstr "1" %_Nul1% && (echo.&call :activate %app%&exit /b)
-wmic path %spp% where (PartialProductKey is not NULL) get ID %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate %app%&exit /b)
+wmic path %spp% where ID='%app%' get LicenseStatus %_Nul2% | findstr "1" %_Nul1% && (echo.&call :activate&exit /b)
+wmic path %spp% where (PartialProductKey is not NULL) get ID %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate&exit /b)
 if %_gvlk% EQU 1 exit /b
 if %WinPerm% EQU 1 exit /b
 if %winbuild% LSS 10240 (call :winchk&exit /b)
@@ -599,8 +600,9 @@ set Off1ce=0
 set RunR2V=0
 if %winbuild% LSS 9200 (set "aword=2010/2013/2016/2019") else (set "aword=2010")
 if %OsppHook% EQU 0 (echo.&echo No Installed Office %aword% Product Detected...&exit /b)
+if %winbuild% GEQ 9200 if %loc_off14% EQU 0 (echo.&echo No Installed Office %aword% Product Detected...&exit /b)
+if %winbuild% GEQ 9200 wmic path %spp% get Description %_Nul2% | findstr /i KMSCLIENT %_Nul1% || (echo.&echo Detected Office %aword% %nKMS%&echo Retail Products need to be converted to Volume first.&exit /b)
 if %winbuild% GEQ 9200 set Off1ce=1
-if %winbuild% GEQ 9200 wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name /VALUE %_Nul3% || (echo.&echo Detected Office %aword% does not support KMS activation...&echo Retail Products need to be converted to Volume first.&exit /b)
 if %winbuild% LSS 9200 call :win7off
 if %Off1ce% EQU 0 exit /b
 if %AUR% EQU 0 (
@@ -621,7 +623,9 @@ wmic path %sps% where version='%ver%' call DisableKeyManagementServiceHostCachin
 exit /b
 
 :win7off
-set spp_off14=0&spp_off15=0&set spp_off16=0&set spp_off19=0
+set _sC2R=win7off
+set _fC2R=ReturnOSPP
+set spp_off14=0&set spp_off15=0&set spp_off16=0&set spp_off19=0
 wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name > "!_temp!\sppchk.txt" 2>&1
 find /i "Office 14" "!_temp!\sppchk.txt" %_Nul1% && (set spp_off14=1)
 find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (set spp_off15=1)
@@ -638,15 +642,14 @@ if %loc_off16% EQU 1 if %spp_off16% EQU 0 if %RunR2V% EQU 0 goto :C2RR2V
 if %loc_off19% EQU 1 if %spp_off19% EQU 0 if %RunR2V% EQU 0 goto :C2RR2V
 if %spp_offgl% EQU 1 exit /b
 set Off1ce=0
-set _sC2R=win7off
-set _fC2R=ReturnOSPP
+if %loc_offgl% EQU 0 (echo.&echo No Installed Office %aword% Product Detected...&exit /b)
 if %RunR2V% EQU 0 goto :C2RR2V
 :ReturnOSPP
 echo.
-if %loc_off14% EQU 1 if %spp_off14% EQU 0 Detected Office 2010 does not support KMS activation...
-if %loc_off15% EQU 1 if %spp_off15% EQU 0 Detected Office 2013 does not support KMS activation...
-if %loc_off16% EQU 1 if %spp_off16% EQU 0 Detected Office 2016 does not support KMS activation...
-if %loc_off19% EQU 1 if %spp_off19% EQU 0 Detected Office 2019 does not support KMS activation...
+if %loc_off14% EQU 1 if %spp_off14% EQU 0 echo Detected Office 2010 %nKMS%
+if %loc_off15% EQU 1 if %spp_off15% EQU 0 echo Detected Office 2013 %nKMS%
+if %loc_off16% EQU 1 if %spp_off16% EQU 0 echo Detected Office 2016 %nKMS%
+if %loc_off19% EQU 1 if %spp_off19% EQU 0 echo Detected Office 2019 %nKMS%
 echo Retail Products need to be converted to Volume first.
 exit /b
 
@@ -657,7 +660,7 @@ find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off15% EQU 0 exit /
 find /i "Office 16" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off16% EQU 0 exit /b)
 find /i "Office 19" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off19% EQU 0 exit /b)
 set _office=0
-wmic path %spp% where (PartialProductKey is not NULL) get ID | findstr /i "%app%" %_Nul3% && (echo.&call :activate %app%&exit /b)
+wmic path %spp% where (PartialProductKey is not NULL) get ID | findstr /i "%app%" %_Nul3% && (echo.&call :activate&exit /b)
 for /f "tokens=3 delims==, " %%G in ('"wmic path %spp% where ID='%app%' get Name /value"') do set OffVer=%%G
 call :offchk%OffVer%
 exit /b
@@ -794,7 +797,7 @@ call :offchk "%app%" "ProPlus-MAK" "Office ProPlus 2010" "ProPlusAcad-MAK" "Offi
 exit /b
 )
 if /i '%app%' EQU '9da2a678-fb6b-4e67-ab84-60dd6a9c819a' (
-call :offchk "%app%" "Standard-MAK" "Office Standard 2010"
+call :offchk "%app%" "Standard-MAK" "Office Standard 2010" "StandardAcad-MAK"  "Office Standard Academic 2010"
 exit /b
 )
 if /i '%app%' EQU 'ea509e87-07a1-4a45-9edc-eba5a39f36af' (
@@ -806,7 +809,7 @@ call :offchk "%app%" "ProjectPro-MAK" "Project Pro 2010"
 exit /b
 )
 if /i '%app%' EQU '5dc7bf61-5ec9-4996-9ccb-df806a2d0efe' (
-call :offchk "%app%" "ProjectStd-MAK" "Project Standard 2010"
+call :offchk "%app%" "ProjectStd-MAK" "Project Standard 2010" "ProjectStd-MAK2" "Project Standard 2010"
 exit /b
 )
 if /i '%app%' EQU '92236105-bb67-494f-94c7-7f7a607929bd' (
@@ -875,25 +878,27 @@ exit /b
 )
 
 :activate
-wmic path %spp% where ID='%1' call ClearKeyManagementServiceMachine %_Nul3%
-wmic path %spp% where ID='%1' call ClearKeyManagementServicePort %_Nul3%
+wmic path %spp% where ID='%app%' call ClearKeyManagementServiceMachine %_Nul3%
+wmic path %spp% where ID='%app%' call ClearKeyManagementServicePort %_Nul3%
 if %W1nd0ws% EQU 0 if %_office% EQU 0 if %sps% EQU SoftwareLicensingService (
-wmic path %spp% where ID='%1' call SetKeyManagementServiceMachine MachineName="127.0.0.2" %_Nul3%
-wmic path %spp% where ID='%1' call SetKeyManagementServicePort %KMS_Port% %_Nul3%
-for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where ID='%1' get Name /VALUE"') do echo Checking: %%x
+wmic path %spp% where ID='%app%' call SetKeyManagementServiceMachine MachineName="127.0.0.2" %_Nul3%
+wmic path %spp% where ID='%app%' call SetKeyManagementServicePort %KMS_Port% %_Nul3%
+for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where ID='%app%' get Name /VALUE"') do echo Checking: %%x
 echo Product is KMS 2038 Activated.
 exit /b
 )
-for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where ID='%1' get Name /VALUE"') do echo Activating: %%x
-wmic path %spp% where ID='%1' call Activate %_Nul3%
+for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where ID='%app%' get Name /VALUE"') do echo Activating: %%x
+wmic path %spp% where ID='%app%' call Activate %_Nul3%
 call set ERRORCODE=%ERRORLEVEL%
 if %ERRORCODE% NEQ 0 (
 if %sps% EQU SoftwareLicensingService (call :StopService sppsvc) else (call :StopService osppsvc)
-wmic path %spp% where ID='%1' call Activate %_Nul3%
+wmic path %spp% where ID='%app%' call Activate %_Nul3%
 call set ERRORCODE=!ERRORLEVEL!
 )
 if %sps% EQU SoftwareLicensingService wmic path %sps% where version='%ver%' call RefreshLicenseStatus %_Nul3%
-for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where ID='%1' get GracePeriodRemaining /VALUE"') do (set gpr=%%x&set /a gpr2=%%x/1440)
+set gpr=0
+set gpr2=0
+for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where ID='%app%' get GracePeriodRemaining /VALUE"') do (set gpr=%%x&set /a gpr2=%%x/1440)
 if %gpr% EQU 43200 if %_office% EQU 0 if %winbuild% GEQ 9200 (
 echo Product Activation Successful
 echo Remaining Period: 30 days ^(%gpr% minutes^)
@@ -1144,11 +1149,11 @@ echo "%_TaskEx%"
 goto :eof
 
 :CreateReadMe
-if exist "%temp%\ReadMe.html" del /f /q "%temp%\ReadMe.html"
-pushd %temp%
+if exist "!_temp!\ReadMe.html" del /f /q "!_temp!\ReadMe.html"
+pushd %_temp%
 %_Nul3% powershell -noprofile -exec bypass -c "$f=[io.file]::ReadAllText('%~f0') -split ':readme\:.*';iex ($f[1]);"
 popd
-if exist "%temp%\ReadMe.html" start "" "%temp%\ReadMe.html"
+if exist "!_temp!\ReadMe.html" start "" "!_temp!\ReadMe.html"
 goto :eof
 
 :CreateOEM
@@ -1157,7 +1162,7 @@ set "_oem=!_work!"
 copy /y nul "!_work!\#.rw" 1>nul 2>nul && (if exist "!_work!\#.rw" del /f /q "!_work!\#.rw") || (set "_oem=!_dsk!")
 if exist "!_oem!\$OEM$\$$\Setup\Scripts\setupcomplete.cmd" (
 echo.
-echo setupcomplete.cmd already exist in $OEM$ Folder...
+echo $OEM$ Folder already exist...
 echo "!_oem!\$OEM$"
 echo.
 echo manually remove it if you wish to create a fresh copy.
@@ -1800,6 +1805,8 @@ reg query HKLM\SOFTWARE\Microsoft\Office\15.0\ClickToRun /v InstallPath >nul 2>&
 set office=
 if exist "%ProgramFiles%\Microsoft Office\Office15\ospp.vbs" (
   set "office=%ProgramFiles%\Microsoft Office\Office15"
+) else if exist "%ProgramW6432%\Microsoft Office\Office15\ospp.vbs" (
+  set "office=%ProgramW6432%\Microsoft Office\Office15"
 ) else if exist "%ProgramFiles(x86)%\Microsoft Office\Office15\ospp.vbs" (
   set "office=%ProgramFiles(x86)%\Microsoft Office\Office15"
 )
@@ -1812,10 +1819,13 @@ cscript //nologo "!office!\ospp.vbs" /dstatus
 )
 
 :casVc10
-reg query HKLM\SOFTWARE\Microsoft\Office\14.0\ClickToRun /v InstallPath >nul 2>&1 || goto :casVend
+::reg query HKLM\SOFTWARE\Microsoft\Office\14.0\Common\InstallRoot\Virtual >nul 2>&1 || goto :casVend
+reg query HKLM\SOFTWARE\Microsoft\Office\14.0\CVH /f Click2run /k >nul 2>&1 || goto :casVend
 set office=
 if exist "%ProgramFiles%\Microsoft Office\Office14\ospp.vbs" (
   set "office=%ProgramFiles%\Microsoft Office\Office14"
+) else if exist "%ProgramW6432%\Microsoft Office\Office14\ospp.vbs" (
+  set "office=%ProgramW6432%\Microsoft Office\Office14"
 ) else if exist "%ProgramFiles(x86)%\Microsoft Office\Office14\ospp.vbs" (
   set "office=%ProgramFiles(x86)%\Microsoft Office\Office14"
 )
@@ -3302,6 +3312,7 @@ Add-Type -Language CSharp -TypeDefinition @"
     <p>Unsupported Products:</p>
     <ul>
       <li>Office Retail</li>
+      <li>Office UWP Apps</li>
       <li>Windows Editions which do not support KMS activation by design:</li>
       Windows Evaluation Editions<br />
       Windows 7 (Starter, HomeBasic, HomePremium, Ultimate)<br />
@@ -3336,7 +3347,7 @@ Add-Type -Language CSharp -TypeDefinition @"
       <li>Office Tool Plus</li>
       <li>Office 2013-2019 C2R Install</li>
     </ul>
-    <p>Note: only OfficeRTool support converting Office UWP (modern Windows 10 Apps).</p>
+    <p>Note: only OfficeRTool support converting and activating Office UWP (modern Windows 10 Apps).</p>
     <hr />
             <br />
 
@@ -3786,7 +3797,7 @@ echo %_err%
 echo Unsupported OS version Detected.
 echo Project is supported only for Windows 7/8/8.1/10 and their Server equivalent.
 :TheEnd
-if exist "%temp%\ReadMe.html" del /f /q "%temp%\ReadMe.html"
+if exist "!_temp!\ReadMe.html" del /f /q "!_temp!\ReadMe.html"
 echo.
 if %Unattend% EQU 0 echo Press any key to exit.
 %_Pause%
