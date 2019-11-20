@@ -189,13 +189,13 @@ set "IFEO=HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution
 set "OSPP=SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform"
 set "SPPk=SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform"
 set _Hook="%SysPath%\SppExtComObjHook.dll"
-set w7inf="%SystemRoot%\Migration\WTR\KMS_VL_ALL.inf"
+set w7inf=%SystemRoot%\Migration\WTR\KMS_VL_ALL.inf
 set "_TaskEx=\Microsoft\Windows\SoftwareProtectionPlatform\SvcTrigger"
 set "_TaskOs=\Microsoft\Windows\SoftwareProtectionPlatform\SvcRestartTaskLogon"
 set "line1============================================================="
 set "line2=************************************************************"
 set "line3=____________________________________________________________"
-set "line4=          ______________________________"
+set "line4=__________________________________________________"
 for /f "tokens=6 delims=[]. " %%G in ('ver') do set winbuild=%%G
 set SSppHook=0
 if %winbuild% LSS 9200 for /f %%A in ('dir /b /ad %SysPath%\spp\tokens\skus') do (
@@ -242,7 +242,7 @@ cls&goto :DoActivate
 
 :MainMenu
 cls
-mode con cols=80 lines=30
+mode con cols=80 lines=32
 color 07
 title KMS_VL_ALL %uivr%
 set _dMode=Manual
@@ -266,35 +266,35 @@ if %ActOffice% EQU 0 (set _dAoff=No) else (set _dAoff=Yes)
 if %SkipKMS38% EQU 0 (set _dWXKMS=No) else (set _dWXKMS=Yes)
 if %_Debug% EQU 0 (set _dDbg=No) else (set _dDbg=Yes)
 set _el=
+echo.        
+echo           %line3%
+echo.        
+echo                [1] Activate                [%_dMode% Mode]
+echo.              
+echo                [2] Install Auto Renewal    [%_dHook%]
+echo                [3] Uninstall Completely
+echo.              
+echo                [4] Activate                [External Mode]
+echo                %line4%
+echo.              
+echo                    Configuration:
+echo.              
+echo                [5] Enable Debug Mode       [%_dDbg%]
+echo                [6] Process Windows         [%_dAwin%]
+echo                [7] Process Office          [%_dAoff%]
+if %winbuild% GEQ 10240 echo                [X] Skip Windows 10 KMS38   [%_dWXKMS%]
+echo                %line4%
+echo.              
+echo                    Miscellaneous:
+echo.              
+echo                [8] Check Activation Status [vbs]
+echo                [9] Check Activation Status [wmic]
+if defined _ckc echo                [K] Clear KMS Cache
+echo                [S] Create $OEM$ Folder
+echo                [R] Read Me
+echo           %line3%
 echo.
-echo %line3%
-echo.
-echo     [1] Activate                [%_dMode% Mode]
-echo.
-echo     [2] Install Auto Renewal    [%_dHook%]
-echo     [3] Uninstall Completely
-echo.
-echo     [4] Activate                [External Mode]
-echo %line4%
-echo.
-echo             Configuration:
-echo.
-echo     [5] Enable Debug Mode       [%_dDbg%]
-echo     [6] Process Windows         [%_dAwin%]
-echo     [7] Process Office          [%_dAoff%]
-if %winbuild% GEQ 10240 echo     [X] Skip Windows 10 KMS38   [%_dWXKMS%]
-echo %line4%
-echo.
-echo             Miscellaneous:
-echo.
-echo     [8] Check Activation Status [vbs]
-echo     [9] Check Activation Status [wmic]
-if defined _ckc echo     [K] Clear KMS Cache
-echo     [R] Read Me
-echo     [S] Create $OEM$ Folder
-echo %line3%
-echo.
-choice /c 123456789RSKX0 /n /m "> Choose a menu option, or press 0 to Exit: "
+choice /c 123456789RSKX0 /n /m ">           Choose a menu option, or press 0 to Exit: "
 set _el=%errorlevel%
 if %_el%==14 goto :eof
 if %_el%==13 if %winbuild% GEQ 10240 (if %SkipKMS38% EQU 0 (set SkipKMS38=1) else (set SkipKMS38=0))&goto :MainMenu
@@ -668,9 +668,9 @@ exit /b
 :offchk
 set ls=0
 set ls2=0
-for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (Name like '%%Office%~2%%') get LicenseStatus /VALUE" %_Nul6%') do set /a ls=%%A
+for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (LicenseFamily='Office%~2') get LicenseStatus /VALUE" %_Nul6%') do set /a ls=%%A
 if "%~4" NEQ "" (
-for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (Name like '%%Office%~4%%') get LicenseStatus /VALUE" %_Nul6%') do set /a ls2=%%A
+for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (LicenseFamily='Office%~4') get LicenseStatus /VALUE" %_Nul6%') do set /a ls2=%%A
 )
 if "%ls2%" EQU "1" (
 echo Checking: %~5
@@ -790,8 +790,8 @@ exit /b
 
 :offchk14
 set "vPrem="&set "vPro="
-for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (Name like '%%OfficeVisioPrem-MAK%%') get LicenseStatus /VALUE" %_Nul6%') do set vPrem=%%A
-for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (Name like '%%OfficeVisioPro-MAK%%') get LicenseStatus /VALUE" %_Nul6%') do set vPro=%%A
+for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (LicenseFamily='OfficeVisioPrem-MAK') get LicenseStatus /VALUE" %_Nul6%') do set vPrem=%%A
+for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (LicenseFamily='OfficeVisioPro-MAK') get LicenseStatus /VALUE" %_Nul6%') do set vPro=%%A
 if /i '%app%' EQU '6f327760-8c5c-417c-9b61-836a98287e0c' (
 call :offchk "%app%" "ProPlus-MAK" "Office ProPlus 2010" "ProPlusAcad-MAK" "Office Professional Academic 2010"
 exit /b
@@ -801,7 +801,7 @@ call :offchk "%app%" "Standard-MAK" "Office Standard 2010" "StandardAcad-MAK"  "
 exit /b
 )
 if /i '%app%' EQU 'ea509e87-07a1-4a45-9edc-eba5a39f36af' (
-call :offchk "%app%" "SmallBusBasics-MAK" "Office Home and Business 2010"
+call :offchk "%app%" "SmallBusBasics-MAK" "Office Small Business Basics 2010"
 exit /b
 )
 if /i '%app%' EQU 'df133ff7-bf14-4f95-afe3-7b48e7e331ef' (
@@ -938,10 +938,10 @@ goto :DoDebug
 )
 if %_verb% EQU 1 (
 if %Silent% EQU 0 if %_Debug% EQU 0 (
-mode con cols=100 lines=30
+mode con cols=100 lines=32
 %_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.height=300;$W.buffersize=$B;}"
 )
-echo.
+echo.&echo %line3%&echo.
 echo Installing Local KMS Emulator...
 )
 if %winbuild% GEQ 9600 (
@@ -950,10 +950,14 @@ if %winbuild% GEQ 9600 (
 if %_verb% EQU 1 (
 echo.
 echo Adding File%AddExc%...
-echo "%SystemRoot%\System32\SppExtComObjHook.dll"
+echo %SystemRoot%\System32\SppExtComObjHook.dll
 )
-for %%# in (SppExtComObjHookAvrf.dll,SppExtComObjHook.dll,SppExtComObjPatcher.dll,SppExtComObjPatcher.exe) do (
-	if exist "%SysPath%\%%#" del /f /q "%SysPath%\%%#" %_Nul3%
+if %AUR% EQU 1 (
+call :StopService sppsvc
+if %OsppHook% NEQ 0 call :StopService osppsvc
+)
+for %%# in (SppExtComObjHookAvrf.dll,SppExtComObjHook.dll,SppExtComObjPatcher.dll,SppExtComObjPatcher.exe) do if exist "%SysPath%\%%#" (
+	del /f /q "%SysPath%\%%#" %_Nul3%
 )
 pushd %SysPath%
 %_Nul3% powershell -noprofile -exec bypass -c "$f=[io.file]::ReadAllText('%~f0') -split ':%xOS%dll\:.*';iex ($f[1]);X 1;"
@@ -983,10 +987,7 @@ if %SSppHook% NEQ 0 if not exist %w7inf% (
   )
 )
 if %AUR% EQU 1 if %OSType% EQU Win8 call :CreateTask
-if %_verb% EQU 1 (
-echo.
-echo %line1%
-)
+if %_verb% EQU 1 echo.&echo %line3%&echo.
 goto :%_rtr%
 
 :RemoveHook
@@ -1000,15 +1001,15 @@ if %winbuild% GEQ 9600 (
 )
 if %_verb% EQU 1 (
 if %Silent% EQU 0 if %_Debug% EQU 0 (
-mode con cols=100 lines=30
+mode con cols=100 lines=32
 )
-echo.
+echo.&echo %line3%&echo.
 echo Uninstalling Local KMS Emulator...
 echo.
 echo Removing Files%RemExc%...
 )
 for %%# in (SppExtComObjHookAvrf.dll,SppExtComObjHook.dll,SppExtComObjPatcher.dll,SppExtComObjPatcher.exe) do if exist "%SysPath%\%%#" (
-	if %_verb% EQU 1 echo "%SystemRoot%\System32\%%#"
+	if %_verb% EQU 1 echo %SystemRoot%\System32\%%#
 	del /f /q "%SysPath%\%%#" %_Nul3%
 )
 if exist %w7inf% (
@@ -1026,7 +1027,7 @@ if %OSType% EQU Win8 schtasks /query /tn "%_TaskEx%" %_Nul3% && (
 if %_verb% EQU 1 (
 echo.
 echo Removing Schedule Task...
-echo "%_TaskEx%"
+echo %_TaskEx%
 )
 schtasks /delete /f /tn "%_TaskEx%" %_Nul3%
 )
@@ -1034,7 +1035,7 @@ goto :eof
 
 :CreateIFEOEntry
 if %_verb% EQU 1 (
-echo "%IFEO%\%1"
+echo [%IFEO%\%1]
 )
 reg delete "%IFEO%\%1" /f /v Debugger %_Nul3%
 reg add "%IFEO%\%1" /f /v VerifierDlls /t REG_SZ /d "SppExtComObjHook.dll" %_Nul3%
@@ -1049,7 +1050,7 @@ goto :eof
 
 :RemoveIFEOEntry
 if %_verb% EQU 1 (
-echo "%IFEO%\%1"
+echo [%IFEO%\%1]
 )
 if /i %1 NEQ osppsvc.exe (
 reg delete "%IFEO%\%1" /f %_Nul3%
@@ -1113,12 +1114,13 @@ goto :eof
 
 :cCache
 echo.
+if %_verb% EQU 0 echo %line3%&echo.
 echo Clearing KMS Cache...
 call :cKMS SoftwareLicensingProduct SoftwareLicensingService %_Nul3%
 if %OsppHook% NEQ 0 call :cKMS OfficeSoftwareProtectionProduct OfficeSoftwareProtectionService %_Nul3%
 call :cREG %_Nul3%
 if %Unattend% NEQ 0 goto :TheEnd
-echo.
+echo.&echo %line3%&echo.
 echo Press any key to continue...
 pause >nul
 goto :MainMenu
@@ -1144,7 +1146,7 @@ if exist "!_temp!\SvcTrigger.xml" (
 schtasks /query /tn "%_TaskEx%" %_Nul3% && if %_verb% EQU 1 (
 echo.
 echo Adding Schedule Task...
-echo "%_TaskEx%"
+echo %_TaskEx%
 )
 goto :eof
 
@@ -1161,20 +1163,21 @@ cls
 set "_oem=!_work!"
 copy /y nul "!_work!\#.rw" 1>nul 2>nul && (if exist "!_work!\#.rw" del /f /q "!_work!\#.rw") || (set "_oem=!_dsk!")
 if exist "!_oem!\$OEM$\$$\Setup\Scripts\setupcomplete.cmd" (
-echo.
+echo.&echo %line3%&echo.
 echo $OEM$ Folder already exist...
 echo "!_oem!\$OEM$"
 echo.
 echo manually remove it if you wish to create a fresh copy.
-echo.
+echo.&echo %line3%&echo.
 echo Press any key to continue...
 pause >nul
 goto :eof
 )
-echo.
+echo.&echo %line3%&echo.
 echo $OEM$ Folder Created...
 echo.
 echo "!_oem!\$OEM$"
+echo.&echo %line3%&echo.
 if not exist "!_oem!\$OEM$\$$\Setup\Scripts\KMS_VL_ALL_AIO.cmd" mkdir ""!_oem!\$OEM$\$$\Setup\Scripts"
 copy /y "%~f0" "!_oem!\$OEM$\$$\Setup\Scripts\KMS_VL_ALL_AIO.cmd" %_Nul3%
 (
@@ -1317,7 +1320,7 @@ if not defined _wmi (
 goto :%_fC2R%
 )
 echo.
-echo Converting Office Click-to-Run Retail-to-Volume...
+echo Checking Office Click-to-Run...
 set _Retail=0
 wmic path %_spp% where (ApplicationID='%_oApp%' AND LicenseStatus='1' AND PartialProductKey IS NOT NULL) get Description %_Nul2% |findstr /V /R "^$" >"!_temp!\crvRetail.txt"
 find /i "RETAIL channel" "!_temp!\crvRetail.txt" %_Nul1% && set _Retail=1
@@ -1347,6 +1350,7 @@ pushd %_copp%
 %_Nul3% del /f /q cleanospp.exe
 popd
 )
+set _C2rMsg=0
 set _O16O365=0
 if %_Retail% EQU 1 wmic path %_spp% where (ApplicationID='%_oApp%' AND LicenseStatus='1' AND PartialProductKey IS NOT NULL) get LicenseFamily %_Nul2% |findstr /V /R "^$" >"!_temp!\crvRetail.txt"
 wmic path %_spp% where (ApplicationID='%_oApp%') get LicenseFamily %_Nul2% |findstr /V /R "^$" >"!_temp!\crvVolume.txt" 2>&1
@@ -1411,8 +1415,15 @@ if %_Retail% EQU 1 reg query %_PRIDs%\ProPlusRetail.16 %_Nul3% && (
   find /i "Office16ProPlusVL_MAK" "!_temp!\crvRetail.txt" %_Nul1% && set _ProPlus=0
 )
 
+if %_C2rMsg% NEQ 2 for %%a in (%_RetIds%,ProPlus) do if !_%%a! EQU 1 (
+set _C2rMsg=1
+)
+if %_C2rMsg% EQU 1 (
+echo Converting Retail-to-Volume:
+set _C2rMsg=2
+)
+
 if !_Mondo! EQU 1 (
-echo Mondo 2016 Suite
 call :InsLic Mondo
 )
 if !_O365ProPlus! EQU 1 (
@@ -1446,6 +1457,7 @@ if !_Mondo! EQU 0 call :InsLic Mondo
 )
 if !_O365ProPlus! EQU 1 set _O16O365=1
 if !_Mondo! EQU 1 if !_O365ProPlus! EQU 0 (
+echo Mondo 2016 Suite
 call :InsLic O365ProPlus DRNV7-VGMM2-B3G9T-4BF84-VMFTK
 if %_Office15% EQU 1 (goto :R15V) else (goto :GVLKC2R)
 )
@@ -1583,8 +1595,14 @@ if %_Retail% EQU 1 reg query %_PR15IDs%\Active\ProPlusRetail\x-none %_Nul3% && (
   find /i "OfficeProPlusVL_MAK" "!_temp!\crvRetail.txt" %_Nul1% && set _ProPlus=0
 )
 
+if %_C2rMsg% NEQ 2 for %%a in (%_R15Ids%,ProPlus) do if !_%%a! EQU 1 (
+set _C2rMsg=1
+)
+if %_C2rMsg% EQU 1 (
+echo Converting Retail-to-Volume:
+)
+
 if !_Mondo! EQU 1 (
-echo Mondo 2013 Suite
 call :Ins15Lic Mondo
 )
 if !_O365ProPlus! EQU 1 if !_O16O365! EQU 0 (
@@ -1611,6 +1629,7 @@ call :Ins15Lic O365Business MCPBN-CPY7X-3PK9R-P6GTT-H8P8Y
 if !_Mondo! EQU 0 call :Ins15Lic Mondo
 )
 if !_Mondo! EQU 1 if !_O365ProPlus! EQU 0 if !_O16O365! EQU 0 (
+echo Mondo 2013 Suite
 call :Ins15Lic O365ProPlus DRNV7-VGMM2-B3G9T-4BF84-VMFTK
 goto :GVLKC2R
 )
@@ -1713,7 +1732,7 @@ goto :%_sC2R%
 
 :casVm
 cls
-mode con cols=100 lines=30
+mode con cols=100 lines=32
 %_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.height=300;$W.buffersize=$B;}"
 setlocal EnableDelayedExpansion
 echo %line2%
@@ -1846,7 +1865,7 @@ goto :eof
 
 :casWm
 cls
-mode con cols=100 lines=30
+mode con cols=100 lines=32
 %_Nul3% powershell -noprofile -exec bypass -c "&{$H=get-host;$W=$H.ui.rawui;$B=$W.buffersize;$B.height=300;$W.buffersize=$B;}"
 setlocal
 set wspp=SoftwareLicensingProduct
@@ -2731,7 +2750,7 @@ set "_key=HVHB3-C6FV7-KQX9W-YQG79-CRY7T" &:: Word
 exit /b
 
 :ea509e87-07a1-4a45-9edc-eba5a39f36af
-set "_key=D6QFG-VBYP2-XQHM7-J97RH-VVRCK" &:: Home and Business
+set "_key=D6QFG-VBYP2-XQHM7-J97RH-VVRCK" &:: Small Business Basics
 exit /b
 
 :x86dll:
@@ -3786,7 +3805,7 @@ goto :eof
 
 :E_DLL
 echo %_err%
-echo File creation failed.
+echo "%SystemRoot%\System32\SppExtComObjHook.dll" creation failed.
 echo Verify that Antivirus protection is OFF or the file path is excluded.
 echo.
 echo Turn External option ON to activate via external KMS Server.
