@@ -90,11 +90,13 @@ if exist "%SystemRoot%\Sysnative\reg.exe" (set "SysPath=%SystemRoot%\Sysnative")
 set "Path=%SysPath%;%SystemRoot%;%SysPath%\Wbem;%SystemRoot%\System32\WindowsPowerShell\v1.0\"
 set "_err===== ERROR ===="
 set "xOS=amd64"
-set "bit=64"
+set "xBit=amd64"
+set "_bit=64"
 set "_wow=1"
 if /i %PROCESSOR_ARCHITECTURE%==x86 (if not defined PROCESSOR_ARCHITEW6432 (
   set "xOS=x86"
-  set "bit=32"
+  set "xBit=x86"
+  set "_bit=32"
   set "_wow=0"
   )
 )
@@ -202,7 +204,7 @@ if %winbuild% LSS 9200 for /f %%A in ('dir /b /ad %SysPath%\spp\tokens\skus') do
 )
 set OsppHook=1
 sc query osppsvc %_Nul3%
-if %errorlevel% equ 1060 set OsppHook=0
+if %errorlevel% EQU 1060 set OsppHook=0
 
 if %winbuild% GEQ 9200 (
   set OSType=Win8
@@ -423,6 +425,7 @@ call :RunSPP
 if %ActOffice% NEQ 0 call :RunOSPP
 if %ActOffice% EQU 0 (echo.&echo Office activation is OFF...)
 
+if exist "!_temp!\crv*.txt" del /f /q "!_temp!\crv*.txt"
 if exist "!_temp!\*chk.txt" del /f /q "!_temp!\*chk.txt"
 if exist "!_temp!\slmgr.vbs" del /f /q "!_temp!\slmgr.vbs"
 call :StopService sppsvc
@@ -479,6 +482,7 @@ wmic path %sps% where version='%ver%' call DisableKeyManagementServiceHostCachin
 exit /b
 
 :sppoff
+set RunR2V=0
 set spp_off15=0&set spp_off16=0&set spp_off19=0
 wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name > "!_temp!\sppchk.txt" 2>&1
 find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (set spp_off15=1)
@@ -490,11 +494,18 @@ if %loc_off15% EQU 0 if %loc_off16% EQU 0 if %loc_off19% EQU 0 (set loc_offgl=0)
 if %loc_offgl% EQU 1 set Off1ce=1
 set spp_offgl=1
 if %spp_off15% EQU 0 if %spp_off16% EQU 0 if %spp_off19% EQU 0 (set spp_offgl=0)
-if %spp_offgl% EQU 0 (
+if %spp_offgl% EQU 1 exit /b
 set Off1ce=0
-if %loc_offgl% EQU 0 (echo.&echo No Installed Office 2013/2016/2019 Product Detected...)
-if %loc_offgl% EQU 1 (echo.&echo Detected Office 2013/2016/2019 do not support KMS activation...&echo Retail Products need to be converted to Volume first.)
-)
+if %loc_offgl% EQU 0 (echo.&echo No Installed Office 2013/2016/2019 Product Detected...&exit /b)
+set _sC2R=sppoff
+set _fC2R=ReturnSPP
+if %RunR2V% EQU 0 goto :C2RR2V
+:ReturnSPP
+echo.
+if %loc_off15% EQU 1 if %spp_off15% EQU 0 Detected Office 2013 does not support KMS activation...
+if %loc_off16% EQU 1 if %spp_off16% EQU 0 Detected Office 2016 does not support KMS activation...
+if %loc_off19% EQU 1 if %spp_off19% EQU 0 Detected Office 2019 does not support KMS activation...
+echo Retail Products need to be converted to Volume first.
 exit /b
 
 :sppchkoff
@@ -576,9 +587,12 @@ exit /b
 :RunOSPP
 set spp=OfficeSoftwareProtectionProduct
 set sps=OfficeSoftwareProtectionService
+set Off1ce=0
 if %winbuild% LSS 9200 (set "aword=2010/2013/2016/2019") else (set "aword=2010")
 if %OsppHook% EQU 0 (echo.&echo No Installed Office %aword% Product Detected...&exit /b)
-wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name /VALUE %_Nul3% || (echo.&echo Detected Office %aword% do not support KMS activation...&echo Retail Products need to be converted to Volume first.&exit /b)
+call :win7off
+if %Off1ce% EQU 0 exit /b
+rem wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name /VALUE %_Nul3% || (echo.&echo Detected Office %aword% does not support KMS activation...&echo Retail Products need to be converted to Volume first.&exit /b)
 if %AUR% EQU 0 (
 reg delete "HKLM\%OSPP%\%_oA14%" /f %_Nul3%
 reg delete "HKLM\%OSPP%\%_oApp%" /f %_Nul3%
@@ -594,6 +608,34 @@ call :cREG %_Nul3%
 wmic path %sps% where version='%ver%' call DisableKeyManagementServiceDnsPublishing 0 %_Nul3%
 wmic path %sps% where version='%ver%' call DisableKeyManagementServiceHostCaching 0 %_Nul3%
 )
+exit /b
+
+:win7off
+set RunR2V=0
+set spp_off14=0&spp_off15=0&set spp_off16=0&set spp_off19=0
+wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name > "!_temp!\osppchk.txt" 2>&1
+find /i "Office 14" "!_temp!\osppchk.txt" %_Nul1% && (set spp_off14=1)
+find /i "Office 15" "!_temp!\osppchk.txt" %_Nul1% && (set spp_off15=1)
+find /i "Office 16" "!_temp!\osppchk.txt" %_Nul1% && (set spp_off16=1)
+find /i "Office 19" "!_temp!\osppchk.txt" %_Nul1% && (set spp_off19=1)
+for %%A in (14,15,16,19) do if !loc_off%%A! EQU 0 set spp_off%%A=0
+set loc_offgl=1
+if %loc_off14% EQU 0 if %loc_off15% EQU 0 if %loc_off16% EQU 0 if %loc_off19% EQU 0 (set loc_offgl=0)
+if %loc_offgl% EQU 1 set Off1ce=1
+set spp_offgl=1
+if %spp_off14% EQU 0 if %spp_off15% EQU 0 if %spp_off16% EQU 0 if %spp_off19% EQU 0 (set spp_offgl=0)
+if %spp_offgl% EQU 1 exit /b
+set Off1ce=0
+set _sC2R=win7off
+set _fC2R=ReturnOSPP
+if %RunR2V% EQU 0 goto :C2RR2V
+:ReturnOSPP
+echo.
+if %loc_off14% EQU 1 if %spp_off14% EQU 0 Detected Office 2010 does not support KMS activation...
+if %loc_off15% EQU 1 if %spp_off15% EQU 0 Detected Office 2013 does not support KMS activation...
+if %loc_off16% EQU 1 if %spp_off16% EQU 0 Detected Office 2016 does not support KMS activation...
+if %loc_off19% EQU 1 if %spp_off19% EQU 0 Detected Office 2019 does not support KMS activation...
+echo Retail Products need to be converted to Volume first.
 exit /b
 
 :osppchk
@@ -632,15 +674,6 @@ exit /b
 if /i '%app%' EQU '0bc88885-718c-491d-921f-6f214349e79c' exit /b
 if /i '%app%' EQU 'fc7c4d0c-2e85-4bb9-afd4-01ed1476b5e9' exit /b
 if /i '%app%' EQU '500f6619-ef93-4b75-bcb4-82819998a3ca' exit /b
-if /i '%app%' EQU '85dd8b5f-eaa4-4af3-a628-cce9e77c9a03' (
-wmic path %spp% where 'PartialProductKey is not NULL' get ID | findstr /i "0bc88885-718c-491d-921f-6f214349e79c" %_Nul3% && (exit /b)
-)
-if /i '%app%' EQU '2ca2bf3f-949e-446a-82c7-e25a15ec78c4' (
-wmic path %spp% where 'PartialProductKey is not NULL' get ID | findstr /i "fc7c4d0c-2e85-4bb9-afd4-01ed1476b5e9" %_Nul3% && (exit /b)
-)
-if /i '%app%' EQU '5b5cf08f-b81a-431d-b080-3450d8620565' (
-wmic path %spp% where 'PartialProductKey is not NULL' get ID | findstr /i "500f6619-ef93-4b75-bcb4-82819998a3ca" %_Nul3% && (exit /b)
-)
 if /i '%app%' EQU '85dd8b5f-eaa4-4af3-a628-cce9e77c9a03' (
 call :offchk "%app%" "19ProPlus2019VL_MAK_AE" "Office ProPlus 2019" "19ProPlus2019XC2RVL_MAKC2R" "Office ProPlus 2019 C2R"
 exit /b
@@ -1153,7 +1186,7 @@ for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\16.
 if exist "!office!\ospp.vbs" (
 echo.
 echo %line2%
-echo ***              Office 2016 %bit%-bit Status               ***
+echo ***              Office 2016 %_bit%-bit Status               ***
 echo %line2%
 cscript //nologo "!office!\ospp.vbs" /dstatus
 )
@@ -1174,7 +1207,7 @@ for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\15.
 if exist "!office!\ospp.vbs" (
 echo.
 echo %line2%
-echo ***              Office 2013 %bit%-bit Status               ***
+echo ***              Office 2013 %_bit%-bit Status               ***
 echo %line2%
 cscript //nologo "!office!\ospp.vbs" /dstatus
 )
@@ -1195,7 +1228,7 @@ for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\14.
 if exist "!office!\ospp.vbs" (
 echo.
 echo %line2%
-echo ***              Office 2010 %bit%-bit Status               ***
+echo ***              Office 2010 %_bit%-bit Status               ***
 echo %line2%
 cscript //nologo "!office!\ospp.vbs" /dstatus
 )
@@ -1276,13 +1309,13 @@ set o15App=0ff1ce15-a989-479d-af46-f275c6370663
 for %%# in (spp_get,ospp_get,cW1nd0ws,sppw,c0ff1ce15,sppo,osppsvc,ospp14,ospp15) do set "%%#="
 set "spp_get=Description, DiscoveredKeyManagementServiceMachineName, DiscoveredKeyManagementServiceMachinePort, EvaluationEndDate, GracePeriodRemaining, ID, KeyManagementServiceMachine, KeyManagementServicePort, KeyManagementServiceProductKeyID, LicenseStatus, LicenseStatusReason, Name, PartialProductKey, ProductKeyID, VLActivationInterval, VLRenewalInterval"
 set "ospp_get=%spp_get%"
-if %winbuild% geq 9200 set "spp_get=%spp_get%, DiscoveredKeyManagementServiceMachineIpAddress, KeyManagementServiceLookupDomain, ProductKeyChannel, VLActivationTypeEnabled"
+if %winbuild% GEQ 9200 set "spp_get=%spp_get%, DiscoveredKeyManagementServiceMachineIpAddress, KeyManagementServiceLookupDomain, ProductKeyChannel, VLActivationTypeEnabled"
 
 call :casWpkey %wspp% %winApp% cW1nd0ws sppw
-if %winbuild% geq 9200 call :casWpkey %wspp% %o15App% c0ff1ce15 sppo
+if %winbuild% GEQ 9200 call :casWpkey %wspp% %o15App% c0ff1ce15 sppo
 wmic path %osps% get Version 1>nul 2>nul && (
 call :casWpkey %ospp% %o14App% osppsvc ospp14
-if %winbuild% lss 9200 call :casWpkey %ospp% %o15App% osppsvc ospp15
+if %winbuild% LSS 9200 call :casWpkey %ospp% %o15App% osppsvc ospp15
 )
 
 echo %line2%
@@ -1349,7 +1382,7 @@ exit /b
 
 :casWdet
 for %%# in (%~3) do set "%%#="
-if %~1 equ %ospp% for %%# in (DiscoveredKeyManagementServiceMachineIpAddress, KeyManagementServiceLookupDomain, ProductKeyChannel, VLActivationTypeEnabled) do set "%%#="
+if %~1 EQU %ospp% for %%# in (DiscoveredKeyManagementServiceMachineIpAddress, KeyManagementServiceLookupDomain, ProductKeyChannel, VLActivationTypeEnabled) do set "%%#="
 set "cKmsClient="
 for /f "tokens=* delims=" %%# in ('"wmic path %~1 where (ID='%chkID%') get %~3 /value" ^| findstr ^=') do set "%%#"
 
@@ -1359,35 +1392,35 @@ cmd /c exit /b %LicenseStatusReason%
 set "LicenseReason=%=ExitCode%"
 set "LicenseMsg=Time remaining: %GracePeriodRemaining% minute(s) (%gprDays% day(s))"
 
-if %LicenseStatus%==0 (
+if %LicenseStatus% EQU 0 (
 set "License=Unlicensed"
 set "LicenseMsg="
 )
-if %LicenseStatus%==1 (
+if %LicenseStatus% EQU 1 (
 set "License=Licensed"
 set "LicenseMsg="
 if not %GracePeriodRemaining%==0 set "LicenseMsg=Volume activation expiration: %GracePeriodRemaining% minute(s) (%gprDays% day(s))"
 )
-if %LicenseStatus%==2 (
+if %LicenseStatus% EQU 2 (
 set "License=Initial grace period"
 )
-if %LicenseStatus%==3 (
+if %LicenseStatus% EQU 3 (
 set "License=Additional grace period (KMS license expired or hardware out of tolerance)"
 )
-if %LicenseStatus%==4 (
+if %LicenseStatus% EQU 4 (
 set "License=Non-genuine grace period."
 )
-if %LicenseStatus%==6 (
+if %LicenseStatus% EQU 6 (
 set "License=Extended grace period"
 )
-if %LicenseStatus%==5 (
+if %LicenseStatus% EQU 5 (
 set "License=Notification"
   if "%LicenseReason%"=="C004F200" (set "LicenseMsg=Notification Reason: 0xC004F200 (non-genuine)."
   ) else if "%LicenseReason%"=="C004F009" (set "LicenseMsg=Notification Reason: 0xC004F009 (grace time expired)."
   ) else (set "LicenseMsg=Notification Reason: 0x%LicenseReason%"
   )
 )
-if %LicenseStatus% gtr 6 (
+if %LicenseStatus% GTR 6 (
 set "License=Unknown"
 set "LicenseMsg="
 )
@@ -1404,18 +1437,18 @@ if "%DiscoveredKeyManagementServiceMachineName%"=="" set "KmsDns=DNS auto-discov
 for /f "tokens=* delims=" %%# in ('"wmic path %~2 get ClientMachineID, KeyManagementServiceHostCaching /value" ^| findstr ^=') do set "%%#"
 if /i %KeyManagementServiceHostCaching%==True (set KeyManagementServiceHostCaching=Enabled) else (set KeyManagementServiceHostCaching=Disabled)
 
-if %winbuild% lss 9200 exit /b
-if %~1 equ %ospp% exit /b
+if %winbuild% LSS 9200 exit /b
+if %~1 EQU %ospp% exit /b
 
 if "%DiscoveredKeyManagementServiceMachineIpAddress%"=="" set "DiscoveredKeyManagementServiceMachineIpAddress=not available"
 
 if "%KeyManagementServiceLookupDomain%"=="" set "KeyManagementServiceLookupDomain="
 
-if %VLActivationTypeEnabled%==3 (
+if %VLActivationTypeEnabled% EQU 3 (
 set VLActivationType=Token
-) else if %VLActivationTypeEnabled%==2 (
+) else if %VLActivationTypeEnabled% EQU 2 (
 set VLActivationType=KMS
-) else if %VLActivationTypeEnabled%==1 (
+) else if %VLActivationTypeEnabled% EQU 1 (
 set VLActivationType=AD
 ) else (
 set VLActivationType=All
