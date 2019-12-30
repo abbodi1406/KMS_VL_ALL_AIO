@@ -1,6 +1,6 @@
 <!-- : Begin batch script
 @setlocal DisableDelayedExpansion
-@set uivr=v36.0
+@set uivr=v37.0
 @echo off
 :: ### Configuration Options ###
 
@@ -359,44 +359,18 @@ exit /b
 setlocal EnableDelayedExpansion
 set "s=!%~2!"
 set "t=!%~4!"
-for %%n in (^"^
-
-^") do (
-  set "s=!s:\=%%~n\%%~n!"
-  set "s=!s:/=%%~n/%%~n!"
-  set "s=!s::=%%~n:%%~n!"
-  set "t=!t:\=%%~n\%%~n!"
-  set "t=!t:/=%%~n/%%~n!"
-  set "t=!t::=%%~n:%%~n!"
-)
 for /f delims^=^ eol^= %%i in ("!s!") do (
   if "!" equ "" setlocal DisableDelayedExpansion
-  if %%i==\ (
-    findstr /a:%~1 "." "\'" nul
-    <nul set /p "=%_BS%%_BS%%_BS%"
-  ) else if %%i==/ (
-    findstr /a:%~1 "." "/.\'" nul
-    <nul set /p "=%_BS%%_BS%%_BS%%_BS%%_BS%"
-  ) else (
     >`.txt (echo %%i\..\')
     findstr /a:%~1 /f:`.txt "."
     <nul set /p "=%_BS%%_BS%%_BS%%_BS%%_BS%%_BS%%_BS%"
-  )
 )
 setlocal EnableDelayedExpansion
 for /f delims^=^ eol^= %%i in ("!t!") do (
   if "!" equ "" setlocal DisableDelayedExpansion
-  if %%i==\ (
-    findstr /a:%~3 "." "\'" nul
-    <nul set /p "=%_BS%%_BS%%_BS%"
-  ) else if %%i==/ (
-    findstr /a:%~3 "." "/.\'" nul
-    <nul set /p "=%_BS%%_BS%%_BS%%_BS%%_BS%"
-  ) else (
     >`.txt (echo %%i\..\')
     findstr /a:%~3 /f:`.txt "."
     <nul set /p "=%_BS%%_BS%%_BS%%_BS%%_BS%%_BS%%_BS%"
-  )
 )
 echo(
 exit /b
@@ -520,6 +494,8 @@ if not defined _C15R reg query HKLM\SOFTWARE\Microsoft\Office\15.0\ClickToRun\pr
 )
 set _V16Ids=Mondo,ProPlus,ProjectPro,VisioPro,Standard,ProjectStd,VisioStd,Access,SkypeforBusiness,OneNote,Excel,Outlook,PowerPoint,Publisher,Word
 set _R16Ids=%_V16Ids%,Professional,HomeBusiness,HomeStudent,O365Business,O365SmallBusPrem,O365HomePrem,O365EduCloud
+set _O16MSI=0
+set _O15MSI=0
 for %%A in (14,15,16,19) do call :officeLoc %%A
 
 call :RunSPP
@@ -614,15 +590,22 @@ wmic path %spp% where 'ApplicationID="%_oApp%" AND LicenseFamily like "Office16O
 if %vol_off15% EQU 1 find /i "OfficeMondoVL_KMS_Client" "!_temp!\sppchk.txt" %_Nul1% && (
 wmic path %spp% where 'ApplicationID="%_oApp%" AND LicenseFamily like "OfficeO365%%"' get LicenseFamily %_Nul2% | find /i "O365" %_Nul1% || (set vol_off15=0)
 )
+set ret_off15=0&set ret_off16=0&set ret_off19=0
+wmic path %spp% where (ApplicationID='%_oApp%' AND NOT Name like '%%O365%%') get Name > "!_temp!\sppchk.txt" 2>&1
+find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 19" %_Nul1% && (set ret_off19=1)
+find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 16" %_Nul1% && (set ret_off16=1)
+find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 15" %_Nul1% && (set ret_off15=1)
+if %ret_off19% EQU 1 if %_O16MSI% EQU 0 set vol_off19=0
+if %ret_off16% EQU 1 if %_O16MSI% EQU 0 set vol_off16=0
+if %ret_off15% EQU 1 if %_O15MSI% EQU 0 set vol_off15=0
 set loc_offgl=1
-if %loc_off19% EQU 0 if %loc_off16% EQU 0 if %loc_off15% EQU 0 (set loc_offgl=0)
+if %loc_off19% EQU 0 if %loc_off16% EQU 0 if %loc_off15% EQU 0 set loc_offgl=0
 if %loc_offgl% EQU 1 set Off1ce=1
 set vol_offgl=1
-if %vol_off19% EQU 0 if %vol_off16% EQU 0 if %vol_off15% EQU 0 (set vol_offgl=0)
+if %vol_off19% EQU 0 if %vol_off16% EQU 0 if %vol_off15% EQU 0 set vol_offgl=0
 :: mixed Volume + Retail scenario
 if %loc_off19% EQU 1 if %vol_off19% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
-if %winbuild% GTR 9600 if %loc_off16% EQU 1 if %vol_off16% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
-if %winbuild% LEQ 9600 if %loc_off16% EQU 1 if %vol_off16% EQU 0 if %vol_off19% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
+if %loc_off16% EQU 1 if %vol_off16% EQU 0 if %vol_off19% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
 if %loc_off15% EQU 1 if %vol_off15% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
 :: all Volume scenario
 if %vol_offgl% EQU 1 exit /b
@@ -766,12 +749,20 @@ wmic path %spp% where 'ApplicationID="%_oApp%" AND LicenseFamily like "Office16O
 if %vol_off15% EQU 1 find /i "OfficeMondoVL_KMS_Client" "!_temp!\sppchk.txt" %_Nul1% && (
 wmic path %spp% where 'ApplicationID="%_oApp%" AND LicenseFamily like "OfficeO365%%"' get LicenseFamily %_Nul2% | find /i "O365" %_Nul1% || (set vol_off15=0)
 )
+set ret_off15=0&set ret_off16=0&set ret_off19=0
+wmic path %spp% where (ApplicationID='%_oApp%' AND NOT Name like '%%O365%%') get Name > "!_temp!\sppchk.txt" 2>&1
+find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 19" %_Nul1% && (set ret_off19=1)
+find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 16" %_Nul1% && (set ret_off16=1)
+find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 15" %_Nul1% && (set ret_off15=1)
+if %ret_off19% EQU 1 if %_O16MSI% EQU 0 set vol_off19=0
+if %ret_off16% EQU 1 if %_O16MSI% EQU 0 set vol_off16=0
+if %ret_off15% EQU 1 if %_O15MSI% EQU 0 set vol_off15=0
 set loc_offgl=1
-if %loc_off19% EQU 0 if %loc_off16% EQU 0 if %loc_off15% EQU 0 if %loc_off14% EQU 0 (set loc_offgl=0)
+if %loc_off19% EQU 0 if %loc_off16% EQU 0 if %loc_off15% EQU 0 if %loc_off14% EQU 0 set loc_offgl=0
 if %loc_offgl% EQU 1 set Off1ce=1
 set vol_offgl=1
 :: mixed Volume + Retail scenario
-if %vol_off19% EQU 0 if %vol_off16% EQU 0 if %vol_off15% EQU 0 if %vol_off14% EQU 0 (set vol_offgl=0)
+if %vol_off19% EQU 0 if %vol_off16% EQU 0 if %vol_off15% EQU 0 if %vol_off14% EQU 0 set vol_offgl=0
 if %loc_off19% EQU 1 if %vol_off19% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
 if %loc_off16% EQU 1 if %vol_off16% EQU 0 if %vol_off19% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
 if %loc_off15% EQU 1 if %vol_off15% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
@@ -972,8 +963,16 @@ if defined _C16R reg query %_C16R% /v ProductReleaseIds %_Nul2% | findstr 2019 %
 exit /b
 )
 
-for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\%1.0\Common\InstallRoot /v Path" %_Nul6%') do if exist "%%b\OSPP.VBS" set loc_off%1=1
-for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Wow6432Node\Microsoft\Office\%1.0\Common\InstallRoot /v Path" %_Nul6%') do if exist "%%b\OSPP.VBS" set loc_off%1=1
+for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Microsoft\Office\%1.0\Common\InstallRoot /v Path" %_Nul6%') do if exist "%%b\OSPP.VBS" (
+set loc_off%1=1
+if %1 EQU 16 set _O16MSI=1
+if %1 EQU 15 set _O15MSI=1
+)
+for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\Wow6432Node\Microsoft\Office\%1.0\Common\InstallRoot /v Path" %_Nul6%') do if exist "%%b\OSPP.VBS" (
+set loc_off%1=1
+if %1 EQU 16 set _O16MSI=1
+if %1 EQU 15 set _O15MSI=1
+)
 
 if %1 EQU 16 if defined _C16R (
 for /f "skip=2 tokens=2*" %%a in ('reg query %_C16R% /v ProductReleaseIds') do echo %%b> "!_temp!\c2rchk.txt"
@@ -2636,7 +2635,7 @@ set "_key=GT63C-RJFQ3-4GMB6-BRFB9-CB83V" &:: Itanium
 exit /b
 
 :f772515c-0e87-48d5-a676-e6962c3e1195
-set "_key=736RG-XDKJK-V34PF-BHK87-J6X3K" &:: MultiPoint Server
+set "_key=736RG-XDKJK-V34PF-BHK87-J6X3K" &:: MultiPoint Server ServerEmbeddedSolution
 exit /b
 
 :: Office 2019
