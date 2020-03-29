@@ -1290,12 +1290,13 @@ echo %_TaskEx%
 goto :eof
 
 :CreateReadMe
-if exist not "%PUBLIC%\ReadMeAIO.html" (
+if not exist "%PUBLIC%\ReadMeAIO.html" (
 pushd %PUBLIC%
 %_Nul3% %_psc% "$f=[io.file]::ReadAllText('!_batp!') -split ':readme\:.*';iex ($f[1]);"
 popd
 )
 if exist "%PUBLIC%\ReadMeAIO.html" start "" "%PUBLIC%\ReadMeAIO.html"
+timeout /t 2 %_Nul3%
 goto :eof
 
 :CreateOEM
@@ -1482,6 +1483,8 @@ pushd %_copp%
 popd
 )
 set _O16O365=0
+set _C16Msg=0
+set _C15Msg=0
 if %_Retail% EQU 1 wmic path %_spp% where "ApplicationID='%_oApp%' AND LicenseStatus='1' AND PartialProductKey<>NULL" get LicenseFamily %_Nul2% |findstr /V /R "^$" >"!_temp!\crvRetail.txt"
 wmic path %_spp% where "ApplicationID='%_oApp%'" get LicenseFamily %_Nul2% |findstr /V /R "^$" >"!_temp!\crvVolume.txt" 2>&1
 
@@ -1550,7 +1553,6 @@ wmic path %spp% where 'ApplicationID="%_oApp%" AND LicenseFamily like "Office16O
   )
 )
 
-set _C16Msg=0
 for %%a in (%_RetIds%,ProPlus) do if !_%%a! EQU 1 (
 set _C16Msg=1
 )
@@ -1737,7 +1739,6 @@ wmic path %spp% where 'ApplicationID="%_oApp%" AND LicenseFamily like "OfficeO36
   )
 )
 
-set _C15Msg=0
 for %%a in (%_R15Ids%,ProPlus) do if !_%%a! EQU 1 (
 set _C15Msg=1
 )
