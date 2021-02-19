@@ -1398,7 +1398,7 @@ if %OsppHook% EQU 0 (
 reg delete "%IFEO%\%1" /f %_Nul3%
 )
 if %OsppHook% NEQ 0 for %%A in (Debugger,VerifierDlls,VerifierDebug,VerifierFlags,GlobalFlag,KMS_Emulation,KMS_ActivationInterval,KMS_RenewalInterval,Office2010,Office2013,Office2016,Office2019) do reg delete "%IFEO%\%1" /v %%A /f %_Nul3%
-reg delete "HKLM\%OPPk%" /f /v KeyManagementServiceName %_Nul3%
+reg add "HKLM\%OPPk%" /f /v KeyManagementServiceName /t REG_SZ /d "0.0.0.0" %_Nul3%
 reg delete "HKLM\%OPPk%" /f /v KeyManagementServicePort %_Nul3%
 goto :eof
 
@@ -1493,7 +1493,7 @@ reg delete "HKLM\%SPPk%\%_wApp%" /f
 reg delete "HKLM\%SPPk%\%_oApp%" /f
 reg delete "HKLM\%SPPk%" /f /v DisableDnsPublishing
 reg delete "HKLM\%SPPk%" /f /v DisableKeyManagementServiceHostCaching
-reg delete "HKLM\%SPPk%" /f /v KeyManagementServiceName
+reg add "HKLM\%SPPk%" /f /v KeyManagementServiceName /t REG_SZ /d "0.0.0.0"
 reg delete "HKLM\%SPPk%" /f /v KeyManagementServicePort
 reg delete "HKU\S-1-5-20\%SPPk%\%_wApp%" /f
 reg delete "HKU\S-1-5-20\%SPPk%\%_oApp%" /f
@@ -1501,7 +1501,7 @@ reg delete "HKLM\%OPPk%\%_oA14%" /f
 reg delete "HKLM\%OPPk%\%_oApp%" /f
 reg delete "HKLM\%OPPk%" /f /v DisableDnsPublishing
 reg delete "HKLM\%OPPk%" /f /v DisableKeyManagementServiceHostCaching
-reg delete "HKLM\%OPPk%" /f /v KeyManagementServiceName
+reg add "HKLM\%OPPk%" /f /v KeyManagementServiceName /t REG_SZ /d "0.0.0.0"
 reg delete "HKLM\%OPPk%" /f /v KeyManagementServicePort
 if %OsppHook% EQU 0 (
 reg delete "HKLM\%OPPk%" /f
@@ -4276,6 +4276,23 @@ Add-Type -Language CSharp -TypeDefinition @"
       Windows 10 (Cloud "S", IoTEnterprise, IoTEnterpriseS, ProfessionalSingleLanguage... etc)<br />
       Windows Server (Server Foundation, Storage Server, Home Server 2011... etc)</li>
     </ul>
+    <p>______________________________</p>
+            <h3>'Get genuine Office' notification banner</h3>
+    <ul>
+      <li>Office Click-to-Run builds (since February 2021) that are activated with KMS checks the existence of the KMS server name in the registry.</li>
+      <li>If KMS server is not present, a banner is shown in Office programs notifying that "Office isn't licensed properly", see <a href="https://i.imgur.com/gLFxssD.png" target="_blank">here</a>.</li>
+      <li>Starting version 41f, for manual activation or complete uninstall option, <code>KeyManagementServiceName</code> value containing a non-existent IP address <strong>0.0.0.0</strong> will be kept in the below registry keys:
+      <div><code>HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform</code><br />
+      <code>HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform</code></div></li>
+      <li>Be assured that it's perfectly fine to keep these registry keys, and it will not affect Windows or Office activation.</li>
+      <li>If you want to delete these registry values, start command prompt as administrator, and run these commands:</li>
+    </ul>
+    <pre>
+<code>
+reg delete "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform" /f /v KeyManagementServiceName
+reg delete "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform" /f /v KeyManagementServiceName
+</code>
+    </pre>
             <hr />
             <br />
 
