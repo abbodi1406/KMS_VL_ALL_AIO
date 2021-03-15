@@ -63,7 +63,7 @@ set KMS_Port=1688
 
 set KMS_Emulation=1
 set Unattend=0
-set _uIP=%KMS_IP%
+set _uIP=0.0.0.0
 
 set "_cmdf=%~f0"
 if exist "%SystemRoot%\Sysnative\cmd.exe" (
@@ -2678,7 +2678,7 @@ exit /b
 set "_key=2F77B-TNFGY-69QQF-B8YKP-D69TJ" &:: Enterprise 2015 LTSB N
 exit /b
 
-:: Windows Server 2021 [Fe]
+:: Windows Server 2022 [Fe]
 :9bd77860-9b31-4b7b-96ad-2564017315bf
 set "_key=VDYBN-27WPP-V4HQT-9VMD4-VMK7H" &:: Standard
 exit /b
