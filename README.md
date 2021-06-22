@@ -10,7 +10,7 @@
 - [X] Simple Traditional Chinese Translation
 - [X] Dedicated KMS server
 # KMS Server
-KMS Server : [nas.chanyin.tw](nas.chanyin.tw)
+KMS Server : ~~ Hide ~~
 
 ## Windows Server 2016
 | System                                          | Key                               |
