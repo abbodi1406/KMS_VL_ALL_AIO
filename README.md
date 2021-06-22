@@ -10,7 +10,7 @@
 - [X] Simple Traditional Chinese Translation
 - [X] Dedicated KMS server
 # KMS Server
-KMS Server : ~~ Hide ~~
+KMS Server : ~~hide~~
 
 ## Windows Server 2016
 | System                                          | Key                               |
