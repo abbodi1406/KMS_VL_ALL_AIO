@@ -1,6 +1,6 @@
 <!-- : Begin batch script
 @setlocal DisableDelayedExpansion
-@set uivr=v44
+@set uivr=v45
 @echo off
 :: ### Configuration Options ###
 
@@ -49,6 +49,10 @@ set KMS_HWID=0x3A1C049600B60076
 
 :: change KMS TCP port
 set KMS_Port=1688
+
+:: change to 1 to use VBScript instead wmic.exe to access WMI
+:: this option is automatically enabled for Windows 11 build 22483 and later
+set WMI_VBS=0
 
 :: Notice for advanced users on Windows 64-bit (x64 / ARM64):
 :: when you bundle KMS_VL_ALL script(s) inside self-extracting program or run it from another command script
@@ -197,7 +201,55 @@ set "ESUEditions=Enterprise,EnterpriseE,EnterpriseN,Professional,ProfessionalE,P
 if exist "%SystemRoot%\Servicing\Packages\Microsoft-Windows-Server*Edition~*.mum" (
 set "ESUEditions=ServerDatacenter,ServerDatacenterCore,ServerDatacenterV,ServerDatacenterVCore,ServerStandard,ServerStandardCore,ServerStandardV,ServerStandardVCore,ServerEnterprise,ServerEnterpriseCore,ServerEnterpriseV,ServerEnterpriseVCore"
 )
+for /f "tokens=6 delims=[]. " %%G in ('ver') do set winbuild=%%G
+set "_csg=cscript.exe //NoLogo //Job:WmiMulti "%~nx0?.wsf""
+set "_csq=cscript.exe //NoLogo //Job:WmiQuery "%~nx0?.wsf""
+set "_csm=cscript.exe //NoLogo //Job:WmiMethod "%~nx0?.wsf""
+set "_csp=cscript.exe //NoLogo //Job:WmiPKey "%~nx0?.wsf""
+set "_csx=cscript.exe //NoLogo //Job:XPDT "%~nx0?.wsf""
+set "_csd=cscript.exe //NoLogo //Job:MPS "%~nx0?.wsf""
+if %winbuild% GEQ 22483 set WMI_VBS=1
+if %WMI_VBS% EQU 0 (
+set "_zz1=wmic path"
+set "_zz2=where"
+set "_zz3=get"
+set "_zz4=/value"
+set "_zz5=("
+set "_zz6=)"
+set "_zz7="wmic path"
+set "_zz8=/value""
+) else (
+set "_zz1=%_csq%"
+set "_zz2="
+set "_zz3="
+set "_zz4="
+set "_zz5=""
+set "_zz6=""
+set "_zz7=%_csq%"
+set "_zz8="
+)
+set _WSH=1
+reg query "HKCU\SOFTWARE\Microsoft\Windows Script Host\Settings" /v Enabled 2>nul | find /i "0x0" 1>nul && (set _WSH=0)
+reg query "HKLM\SOFTWARE\Microsoft\Windows Script Host\Settings" /v Enabled 2>nul | find /i "0x0" 1>nul && (set _WSH=0)
+if %_WSH% EQU 0 if %WMI_VBS% NEQ 0 goto :E_VBS
+set _NCS=1
+if %winbuild% LSS 10586 set _NCS=0
+if %winbuild% GEQ 10586 reg query "HKCU\Console" /v ForceV2 2>nul | find /i "0x0" 1>nul && (set _NCS=0)
 setlocal EnableDelayedExpansion
+copy /y nul "!_work!\#.rw" 1>nul 2>nul && (
+if exist "!_work!\#.rw" del /f /q "!_work!\#.rw"
+) || (
+set "_work=!_dsk!"
+set "_log=!_dsk!\%~n0"
+if %Logger% EQU 1 set _run="!_dsk!\%~n0_Silent.log"
+)
+pushd "!_work!"
+set "_suf="
+set "_qr=%_zz7% Win32_OperatingSystem %_zz3% LocalDateTime %_zz8%"
+if %_Debug% EQU 1 if exist "!_log!_Debug.log" (
+for /f "tokens=2 delims==." %%# in ('%_qr%') do set "_date=%%#"
+set "_suf=_!_date:~8,6!"
+)
 
 if %_Debug% EQU 0 (
   set "_Nul1=1>nul"
@@ -213,12 +265,6 @@ if %_Debug% EQU 0 (
   set "_Nul6="
   set "_Nul3="
   set "_Pause="
-  copy /y nul "!_work!\#.rw" 1>nul 2>nul && (if exist "!_work!\#.rw" del /f /q "!_work!\#.rw") || (set "_log=!_dsk!\%~n0")
-  if exist "!_log!_Debug.log" (
-  call set "_suf="
-  for /f "tokens=2 delims==." %%# in ('wmic os get localdatetime /value') do set "_date=%%#"
-  set "_suf=_!_date:~8,6!"
-  )
   if %Silent% EQU 0 (
   echo.
   echo Running in Debug Mode...
@@ -259,7 +305,6 @@ set "line1============================================================="
 set "line2=************************************************************"
 set "line3=____________________________________________________________"
 set "line4=__________________________________________________"
-for /f "tokens=6 delims=[]. " %%G in ('ver') do set winbuild=%%G
 set SSppHook=0
 for /f %%A in ('dir /b /ad %SysPath%\spp\tokens\skus') do (
   if %winbuild% GEQ 9200 if exist "%SysPath%\spp\tokens\skus\%%A\*GVLK*.xrm-ms" set SSppHook=1
@@ -336,7 +381,7 @@ if %_Debug% EQU 0 (set _dDbg=No) else (set _dDbg=Yes)
 set _el=
 set _quit=
 if %preparedcolor%==0 call :colorprep
-if %winbuild% LSS 10586 (
+if %_NCS% EQU 0 (
 pushd %_temp%
 if not exist "'" (<nul >"'" set /p "=.")
 )
@@ -391,13 +436,13 @@ echo.
 echo                    Miscellaneous:
 echo.
 echo                [8] Check Activation Status [vbs]
-echo                [9] Check Activation Status [wmic]
+echo                [9] Check Activation Status [wmi]
 echo                [S] Create $OEM$ Folder
 echo                [R] Read Me
 echo                [E] Activate [External Mode]
 echo           %line3%
 echo.
-if %winbuild% LSS 10586 (
+if %_NCS% EQU 0 (
 popd
 )
 choice /c 1234567890ERSX /n /m ">           Choose a menu option, or press 0 to Exit: "
@@ -421,7 +466,7 @@ goto :MainMenu
 :colorprep
 set preparedcolor=1
 
-if %winbuild% GEQ 10586 (
+if %_NCS% EQU 1 (
 for /f "tokens=1,2 delims=#" %%A in ('"prompt #$H#$E# & echo on & for %%B in (1) do rem"') do set _EC=%%B
 
 set "_cBlu="44;97m""
@@ -442,7 +487,7 @@ set "_cWht="07""
 exit /b
 
 :Cfgbg
-if %winbuild% GEQ 10586 (
+if %_NCS% EQU 1 (
 echo %_EC%[%~1%~2%_EC%[%~3%~4%_EC%[0m
 exit /b
 )
@@ -564,7 +609,8 @@ SET "EditionID=%EditionPKG:~0,-7%"
 FOR /F "TOKENS=3 DELIMS=: " %%A IN ('DISM /English /Online /Get-CurrentEdition %_Nul6% ^| FIND /I "Current Edition :"') DO SET "EditionID=%%A"
 )
 net start sppsvc /y %_Nul3%
-FOR /F "TOKENS=2 DELIMS==" %%A IN ('"WMIC PATH SoftwareLicensingProduct WHERE (ApplicationID='%_wApp%' %adoff% AND PartialProductKey is not NULL) GET LicenseFamily /VALUE" %_Nul6%') DO SET "EditionWMI=%%A"
+set "_qr=%_zz7% SoftwareLicensingProduct %_zz2% %_zz5%ApplicationID='%_wApp%' %adoff% AND PartialProductKey is not NULL%_zz6% %_zz3% LicenseFamily %_zz8%"
+FOR /F "TOKENS=2 DELIMS==" %%A IN ('%_qr% %_Nul6%') DO SET "EditionWMI=%%A"
 IF "%EditionWMI%"=="" (
 IF %winbuild% GEQ 17063 FOR /F "SKIP=2 TOKENS=2*" %%A IN ('REG QUERY "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion" /v EditionId') DO SET "EditionID=%%B"
 IF %winbuild% LSS 14393 (
@@ -650,7 +696,8 @@ set aC2R19=0
 set aC2R16=0
 set aC2R15=0
 if %winbuild% GEQ 9200 if %ActOffice% NEQ 0 call :sppoff
-wmic path %spp% where (Description like '%%KMSCLIENT%%') get Name /value %_Nul2% | findstr /i Windows %_Nul1% && (set WinVL=1)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%Description like '%%KMSCLIENT%%' %_zz6% %_zz3% Name %_zz4%"
+%_qr% %_Nul2% | findstr /i Windows %_Nul1% && (set WinVL=1)
 if %WinVL% EQU 0 (
 if %ActWindows% EQU 0 (
   echo.&echo Windows activation is OFF...
@@ -672,14 +719,18 @@ reg delete "HKU\S-1-5-20\%SPPk%\%_wApp%" /f %_Null%
 reg delete "HKU\S-1-5-20\%SPPk%\%_oApp%" /f %_Null%
 )
 set _gvlk=0
-if %winbuild% GEQ 10240 wmic path %spp% where (ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL) get Name /value %_Nul2% | findstr /i Windows %_Nul1% && (set _gvlk=1)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL%_zz6% %_zz3% Name %_zz4%"
+if %winbuild% GEQ 10240 %_qr% %_Nul2% | findstr /i Windows %_Nul1% && (set _gvlk=1)
 set gpr=0
-if %winbuild% GEQ 10240 if %SkipKMS38% NEQ 0 if %_gvlk% EQU 1 for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL) get GracePeriodRemaining /VALUE" %_Nul6%') do set "gpr=%%A"
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL%_zz6% %_zz3% GracePeriodRemaining %_zz8%"
+if %winbuild% GEQ 10240 if %SkipKMS38% NEQ 0 if %_gvlk% EQU 1 for /f "tokens=2 delims==" %%A in ('%_qr% %_Nul6%') do set "gpr=%%A"
+set "_qr=%_zz1% %spp% %_zz2% "ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL" %_zz3% LicenseFamily %_zz4%"
 if %gpr% NEQ 0 if %gpr% GTR 259200 (
 set W1nd0ws=0
-wmic path %spp% where "ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL" get LicenseFamily /value %_Nul2% | findstr /i EnterpriseG %_Nul1% && (call set W1nd0ws=1)
+%_qr% %_Nul2% | findstr /i EnterpriseG %_Nul1% && (call set W1nd0ws=1)
 )
-for /f "tokens=2 delims==" %%A in ('"wmic path %sps% get Version /VALUE"') do set ver=%%A
+set "_qr=%_zz7% %sps% %_zz3% Version %_zz8%"
+for /f "tokens=2 delims==" %%A in ('%_qr%') do set slsv=%%A
 reg add "HKLM\%SPPk%" /f /v KeyManagementServiceName /t REG_SZ /d "%KMS_IP%" %_Nul3%
 reg add "HKLM\%SPPk%" /f /v KeyManagementServicePort /t REG_SZ /d "%KMS_Port%" %_Nul3%
 if %winbuild% GEQ 9200 (
@@ -694,11 +745,15 @@ reg delete "HKLM\%SPPk%\%_oApp%" /f %_Null%
 reg add "HKLM\%SPPk%\%_oApp%" /f /v KeyManagementServiceName /t REG_SZ /d "%KMS_IP%" %_Nul3%
 reg add "HKLM\%SPPk%\%_oApp%" /f /v KeyManagementServicePort /t REG_SZ /d "%KMS_Port%" %_Nul3%
 )
-if %W1nd0ws% EQU 0 for /f "tokens=2 delims==" %%G in ('"wmic path %spp% where (ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%') get ID /VALUE"') do (set app=%%G&call :sppchkwin)
-if %W1nd0ws% EQU 1 if %ActWindows% NEQ 0 for /f "tokens=2 delims==" %%G in ('"wmic path %spp% where (ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' %adoff%) get ID /VALUE"') do (set app=%%G&call :sppchkwin)
-rem if %ESU_EDT% EQU 1 if %ActWindows% NEQ 0 for /f "tokens=2 delims==" %%G in ('"wmic path %spp% where (ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' %addon%) get ID /VALUE"') do (set app=%%G&call :esuchk)
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' %_zz6% %_zz3% ID %_zz8%"
+if %W1nd0ws% EQU 0 for /f "tokens=2 delims==" %%G in ('%_qr%') do (set app=%%G&call :sppchkwin)
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' %adoff% %_zz6% %_zz3% ID %_zz8%"
+if %W1nd0ws% EQU 1 if %ActWindows% NEQ 0 for /f "tokens=2 delims==" %%G in ('%_qr%') do (set app=%%G&call :sppchkwin)
+:: set "_qr=%_zz7% %spp% %_zz2% %_zz5%ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' %addon% %_zz6% %_zz3% ID %_zz8%"
+:: if %ESU_EDT% EQU 1 if %ActWindows% NEQ 0 for /f "tokens=2 delims==" %%G in ('%_qr%') do (set app=%%G&call :esuchk)
 if %W1nd0ws% EQU 1 if %ActWindows% EQU 0 (echo.&echo Windows activation is OFF...)
-if %Off1ce% EQU 1 if %ActOffice% NEQ 0 for /f "tokens=2 delims==" %%G in ('"wmic path %spp% where (ApplicationID='%_oApp%' and Description like '%%KMSCLIENT%%') get ID /VALUE"') do (set app=%%G&call :sppchkoff)
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%ApplicationID='%_oApp%' and Description like '%%KMSCLIENT%%' %_zz6% %_zz3% ID %_zz8%"
+if %Off1ce% EQU 1 if %ActOffice% NEQ 0 for /f "tokens=2 delims==" %%G in ('%_qr%') do (set app=%%G&call :sppchkoff)
 if %_AUR% EQU 0 (
 call :cREG %_Nul3%
 ) else (
@@ -722,20 +777,24 @@ set Off1ce=1
 set _sC2R=sppoff
 set _fC2R=ReturnSPP
 set vol_off15=0&set vol_off16=0&set vol_off19=0&set vol_off21=0
-wmic path %spp% where (Description like '%%KMSCLIENT%%' AND NOT Name like '%%MondoR_KMS_Automation%%') get Name /value > "!_temp!\sppchk.txt" 2>&1
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%Description like '%%KMSCLIENT%%' AND NOT Name like '%%MondoR_KMS_Automation%%' %_zz6% %_zz3% Name %_zz4%"
+%_qr% > "!_temp!\sppchk.txt" 2>&1
 find /i "Office 21" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off21=1)
 find /i "Office 19" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off19=1)
 find /i "Office 16" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off16=1)
 find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off15=1)
 for %%A in (15,16,19,21) do if !loc_off%%A! EQU 0 set vol_off%%A=0
+set "_qr=%_zz1% %spp% %_zz2% "ApplicationID='%_oApp%' AND LicenseFamily like 'Office16O365%%'" %_zz3% LicenseFamily %_zz4%"
 if %vol_off16% EQU 1 find /i "Office16MondoVL_KMS_Client" "!_temp!\sppchk.txt" %_Nul1% && (
-wmic path %spp% where 'ApplicationID="%_oApp%" AND LicenseFamily like "Office16O365%%"' get LicenseFamily /value %_Nul2% | find /i "O365" %_Nul1% || (set vol_off16=0)
+%_qr% %_Nul2% | find /i "O365" %_Nul1% || (set vol_off16=0)
 )
+set "_qr=%_zz1% %spp% %_zz2% "ApplicationID='%_oApp%' AND LicenseFamily like 'OfficeO365%%'" %_zz3% LicenseFamily %_zz4%"
 if %vol_off15% EQU 1 find /i "OfficeMondoVL_KMS_Client" "!_temp!\sppchk.txt" %_Nul1% && (
-wmic path %spp% where 'ApplicationID="%_oApp%" AND LicenseFamily like "OfficeO365%%"' get LicenseFamily /value %_Nul2% | find /i "O365" %_Nul1% || (set vol_off15=0)
+%_qr% %_Nul2% | find /i "O365" %_Nul1% || (set vol_off15=0)
 )
 set ret_off15=0&set ret_off16=0&set ret_off19=0&set ret_off21=0
-wmic path %spp% where (ApplicationID='%_oApp%' AND NOT Name like '%%O365%%') get Name /value > "!_temp!\sppchk.txt" 2>&1
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ApplicationID='%_oApp%' AND NOT Name like '%%O365%%' %_zz6% %_zz3% Name %_zz4%"
+%_qr% > "!_temp!\sppchk.txt" 2>&1
 find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 21" %_Nul1% && (set ret_off21=1)
 find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 19" %_Nul1% && (set ret_off19=1)
 find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 16" %_Nul1% && (set ret_off16=1)
@@ -759,7 +818,8 @@ for %%a in (HomeBusiness,HomeStudent) do find /i "Office16%%aR" "!_temp!\sppchk.
   if %vol_off19% EQU 1 find /i "Office19Standard2019VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
   )
 )
-if defined _C16R if %loc_off16% EQU 1 if %run_off16% EQU 0 wmic path %spp% where (ApplicationID='%_oApp%' AND LicenseFamily like 'Office16O365%%') get LicenseFamily /value %_Nul2% | find /i "O365" %_Nul1% && (
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ApplicationID='%_oApp%' AND LicenseFamily like 'Office16O365%%' %_zz6% %_zz3% LicenseFamily %_zz4%"
+if defined _C16R if %loc_off16% EQU 1 if %run_off16% EQU 0 %_qr% %_Nul2% | find /i "O365" %_Nul1% && (
 find /i "Office16MondoVL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
 )
 set vol_offgl=1
@@ -796,31 +856,28 @@ if defined _C15R (if %aC2R15% EQU 1 (echo.&echo %_mO15a%) else (echo.&echo %_mO1
 exit /b
 
 :sppchkoff
-wmic path %spp% where ID='%app%' get Name /value > "!_temp!\sppchk.txt"
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ID='%app%'%_zz6% %_zz3% Name %_zz4%"
+%_qr% > "!_temp!\sppchk.txt"
 find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off15% EQU 0 exit /b)
 find /i "Office 16" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off16% EQU 0 exit /b)
 find /i "Office 19" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off19% EQU 0 exit /b)
 find /i "Office 21" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off21% EQU 0 exit /b)
-if /i '%app%' EQU 'f3fb2d68-83dd-4c8b-8f09-08e0d950ac3b' (
-wmic path %spp% get ID | findstr /i "fbdb3e18-a8ef-4fb3-9183-dffd60bd0984" %_Nul3% && (exit /b)
-)
-if /i '%app%' EQU '76093b1b-7057-49d7-b970-638ebcbfd873' (
-wmic path %spp% get ID | findstr /i "76881159-155c-43e0-9db7-2d70a9a3a4ca" %_Nul3% && (exit /b)
-)
-if /i '%app%' EQU 'a3b44174-2451-4cd6-b25f-66638bfb9046' (
-wmic path %spp% get ID | findstr /i "fb61ac9a-1688-45d2-8f6b-0674dbffa33c" %_Nul3% && (exit /b)
-)
 set _officespp=1
-wmic path %spp% where (PartialProductKey is not NULL) get ID /value %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate&exit /b)
-for /f "tokens=3 delims==, " %%G in ('"wmic path %spp% where ID='%app%' get Name /value"') do set OffVer=%%G
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%PartialProductKey is not NULL%_zz6% %_zz3% ID %_zz4%"
+%_qr% %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate&exit /b)
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%ID='%app%'%_zz6% %_zz3% Name %_zz8%"
+for /f "tokens=3 delims==, " %%G in ('%_qr%') do set OffVer=%%G
 call :offchk%OffVer%
 exit /b
 
 :sppchkwin
 set _officespp=0
-if %winbuild% GEQ 14393 if %WinPerm% EQU 0 if %_gvlk% EQU 0 wmic path %spp% where (ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL) get Name /value %_Nul2% | findstr /i Windows %_Nul1% && (set _gvlk=1)
-wmic path %spp% where ID='%app%' get LicenseStatus /value %_Nul2% | findstr "1" %_Nul1% && (echo.&call :activate&exit /b)
-wmic path %spp% where (PartialProductKey is not NULL) get ID /value %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate&exit /b)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ApplicationID='%_wApp%' and Description like '%%KMSCLIENT%%' and PartialProductKey is not NULL%_zz6% %_zz3% Name %_zz4%"
+if %winbuild% GEQ 14393 if %WinPerm% EQU 0 if %_gvlk% EQU 0 %_qr% %_Nul2% | findstr /i Windows %_Nul1% && (set _gvlk=1)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ID='%app%'%_zz6% %_zz3% LicenseStatus %_zz4%"
+%_qr% %_Nul2% | findstr "1" %_Nul1% && (echo.&call :activate&exit /b)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%PartialProductKey is not NULL%_zz6% %_zz3% ID %_zz4%"
+%_qr% %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate&exit /b)
 if %winbuild% GEQ 14393 if %_gvlk% EQU 1 exit /b
 if %WinPerm% EQU 1 exit /b
 if %winbuild% LSS 10240 (call :winchk&exit /b)
@@ -852,31 +909,37 @@ if /i '%app%' EQU '58e97c99-f377-4ef1-81d5-4ad5522b5fd8' if /i %EditionID% NEQ C
 if /i '%app%' EQU 'cd918a57-a41b-4c82-8dce-1a538e221a83' if /i %EditionID% NEQ CoreSingleLanguage exit /b
 if /i '%app%' EQU 'ec868e65-fadf-4759-b23e-93fe37f2cc29' if /i %EditionID% NEQ ServerRdsh exit /b
 if /i '%app%' EQU 'e4db50ea-bda1-4566-b047-0ca50abc6f07' if /i %EditionID% NEQ ServerRdsh exit /b
-if /i '%app%' EQU 'e4db50ea-bda1-4566-b047-0ca50abc6f07' (
-wmic path %spp% where 'Description like "%%KMSCLIENT%%"' get ID /value | findstr /i "ec868e65-fadf-4759-b23e-93fe37f2cc29" %_Nul3% && (exit /b)
+set "_qr=%_zz1% %spp% %_zz2% "Description like '%%KMSCLIENT%%'" %_zz3% ID %_zz4%"
+if /i "%app%" EQU "e4db50ea-bda1-4566-b047-0ca50abc6f07" (
+%_qr% | findstr /i "ec868e65-fadf-4759-b23e-93fe37f2cc29" %_Nul3% && (exit /b)
 )
 call :winchk
 exit /b
 
 :winchk
 if not defined tok (if %winbuild% GEQ 9200 (set "tok=4") else (set "tok=7"))
-wmic path %spp% where (LicenseStatus='1' and Description like '%%KMSCLIENT%%' %adoff%) get Name /value %_Nul2% | findstr /i "Windows" %_Nul3% && (exit /b)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%LicenseStatus='1' and Description like '%%KMSCLIENT%%' %adoff% %_zz6% %_zz3% Name %_zz4%"
+%_qr% %_Nul2% | findstr /i "Windows" %_Nul3% && (exit /b)
 echo.
-wmic path %spp% where (LicenseStatus='1' and GracePeriodRemaining='0' %adoff% and PartialProductKey is not NULL) get Name /value %_Nul2% | findstr /i "Windows" %_Nul3% && (
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%LicenseStatus='1' and GracePeriodRemaining='0' %adoff% and PartialProductKey is not NULL%_zz6% %_zz3% Name %_zz4%"
+%_qr% %_Nul2% | findstr /i "Windows" %_Nul3% && (
 set WinPerm=1
 )
-if %WinPerm% EQU 0 (
-wmic path %spp% where "ApplicationID='%_wApp%' and LicenseStatus='1' %adoff%" get Name /value %_Nul2% | findstr /i "Windows" %_Nul3% && (
-for /f "tokens=%tok% delims=, " %%G in ('"wmic path %spp% where (ApplicationID='%_wApp%' and LicenseStatus='1' %adoff%) get Description /VALUE"') do set "channel=%%G"
-  for %%A in (VOLUME_MAK, RETAIL, OEM_DM, OEM_SLP, OEM_COA, OEM_COA_SLP, OEM_COA_NSLP, OEM_NONSLP, OEM) do if /i "%%A"=="!channel!" set WinPerm=1
-  )
+set WinOEM=0
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ApplicationID='%_wApp%' and LicenseStatus='1' %adoff% %_zz6% %_zz3% Name %_zz4%"
+if %WinPerm% EQU 0 %_qr% %_Nul2% | findstr /i "Windows" %_Nul3% && set WinOEM=1
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%ApplicationID='%_wApp%' and LicenseStatus='1' %adoff% %_zz6% %_zz3% Description %_zz8%"
+if %WinOEM% EQU 1 (
+for /f "tokens=%tok% delims=, " %%G in ('%_qr%') do set "channel=%%G"
+for %%A in (VOLUME_MAK, RETAIL, OEM_DM, OEM_SLP, OEM_COA, OEM_COA_SLP, OEM_COA_NSLP, OEM_NONSLP, OEM) do if /i "%%A"=="!channel!" set WinPerm=1
 )
 if %WinPerm% EQU 0 (
 copy /y %SysPath%\slmgr.vbs "!_temp!\slmgr.vbs" %_Nul3%
 cscript //nologo "!_temp!\slmgr.vbs" /xpr %_Nul2% | findstr /i "permanently" %_Nul3% && set WinPerm=1
 )
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%ApplicationID='%_wApp%' and LicenseStatus='1' %adoff% %_zz6% %_zz3% Name %_zz8%"
 if %WinPerm% EQU 1 (
-for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where (ApplicationID='%_wApp%' and LicenseStatus='1' %adoff%) get Name /VALUE"') do echo Checking: %%x
+for /f "tokens=2 delims==" %%x in ('%_qr%') do echo Checking: %%x
 echo Product is Permanently Activated.
 exit /b
 )
@@ -886,29 +949,38 @@ exit /b
 :esuchk
 set _officespp=0
 set ESU_ADD=1
-wmic path %spp% where ID='%app%' get LicenseStatus /value %_Nul2% | findstr "1" %_Nul1% && (echo.&call :activate&exit /b)
-if /i '%app%' EQU '3fcc2df2-f625-428d-909a-1f76efc849b6' (
-wmic path %spp% where ID="77db037b-95c3-48d7-a3ab-a9c6d41093e0" get LicenseStatus /value %_Nul2% | findstr "1" %_Nul1% && (exit /b)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ID='%app%'%_zz6% %_zz3% LicenseStatus %_zz4%"
+%_qr% %_Nul2% | findstr "1" %_Nul1% && (echo.&call :activate&exit /b)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ID='77db037b-95c3-48d7-a3ab-a9c6d41093e0'%_zz6% %_zz3% LicenseStatus %_zz4%"
+if /i "%app%" EQU "3fcc2df2-f625-428d-909a-1f76efc849b6" (
+%_qr% %_Nul2% | findstr "1" %_Nul1% && (exit /b)
 )
-if /i '%app%' EQU 'dadfcd24-6e37-47be-8f7f-4ceda614cece' (
-wmic path %spp% where ID="0e00c25d-8795-4fb7-9572-3803d91b6880" get LicenseStatus /value %_Nul2% | findstr "1" %_Nul1% && (exit /b)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ID='0e00c25d-8795-4fb7-9572-3803d91b6880'%_zz6% %_zz3% LicenseStatus %_zz4%"
+if /i "%app%" EQU "dadfcd24-6e37-47be-8f7f-4ceda614cece" (
+%_qr% %_Nul2% | findstr "1" %_Nul1% && (exit /b)
 )
-if /i '%app%' EQU '0c29c85e-12d7-4af8-8e4d-ca1e424c480c' (
-wmic path %spp% where ID="4220f546-f522-46df-8202-4d07afd26454" get LicenseStatus /value %_Nul2% | findstr "1" %_Nul1% && (exit /b)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ID='4220f546-f522-46df-8202-4d07afd26454'%_zz6% %_zz3% LicenseStatus %_zz4%"
+if /i "%app%" EQU "0c29c85e-12d7-4af8-8e4d-ca1e424c480c" (
+%_qr% %_Nul2% | findstr "1" %_Nul1% && (exit /b)
 )
-if /i '%app%' EQU 'f2b21bfc-a6b0-4413-b4bb-9f06b55f2812' (
-wmic path %spp% where ID="553673ed-6ddf-419c-a153-b760283472fd" get LicenseStatus /value %_Nul2% | findstr "1" %_Nul1% && (exit /b)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ID='553673ed-6ddf-419c-a153-b760283472fd'%_zz6% %_zz3% LicenseStatus %_zz4%"
+if /i "%app%" EQU "f2b21bfc-a6b0-4413-b4bb-9f06b55f2812" (
+%_qr% %_Nul2% | findstr "1" %_Nul1% && (exit /b)
 )
-if /i '%app%' EQU 'bfc078d0-8c7f-475c-8519-accc46773113' (
-wmic path %spp% where ID="04fa0286-fa74-401e-bbe9-fbfbb158010d" get LicenseStatus /value %_Nul2% | findstr "1" %_Nul1% && (exit /b)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ID='04fa0286-fa74-401e-bbe9-fbfbb158010d'%_zz6% %_zz3% LicenseStatus %_zz4%"
+if /i "%app%" EQU "bfc078d0-8c7f-475c-8519-accc46773113" (
+%_qr% %_Nul2% | findstr "1" %_Nul1% && (exit /b)
 )
-if /i '%app%' EQU '23c6188f-c9d8-457e-81b6-adb6dacb8779' (
-wmic path %spp% where ID="16c08c85-0c8b-4009-9b2b-f1f7319e45f9" get LicenseStatus /value %_Nul2% | findstr "1" %_Nul1% && (exit /b)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ID='16c08c85-0c8b-4009-9b2b-f1f7319e45f9'%_zz6% %_zz3% LicenseStatus %_zz4%"
+if /i "%app%" EQU "23c6188f-c9d8-457e-81b6-adb6dacb8779" (
+%_qr% %_Nul2% | findstr "1" %_Nul1% && (exit /b)
 )
-if /i '%app%' EQU 'e7cce015-33d6-41c1-9831-022ba63fe1da' (
-wmic path %spp% where ID="8e7bfb1e-acc1-4f56-abae-b80fce56cd4b" get LicenseStatus /value %_Nul2% | findstr "1" %_Nul1% && (exit /b)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ID='8e7bfb1e-acc1-4f56-abae-b80fce56cd4b'%_zz6% %_zz3% LicenseStatus %_zz4%"
+if /i "%app%" EQU "e7cce015-33d6-41c1-9831-022ba63fe1da" (
+%_qr% %_Nul2% | findstr "1" %_Nul1% && (exit /b)
 )
-wmic path %spp% where (PartialProductKey is not NULL) get ID /value %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate&exit /b)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%PartialProductKey is not NULL%_zz6% %_zz3% ID %_zz4%"
+%_qr% %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate&exit /b)
 call :insKey
 exit /b
 
@@ -938,14 +1010,16 @@ reg delete "HKLM\%OPPk%\%_oA14%" /f %_Null%
 reg delete "HKLM\%OPPk%\%_oApp%" /f %_Null%
 )
 set "vPrem="&set "vProf="
-if %loc_off14% EQU 1 (
-for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (LicenseFamily='OfficeVisioPrem-MAK') get LicenseStatus /VALUE" %_Nul6%') do set vPrem=%%A
-for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (LicenseFamily='OfficeVisioPro-MAK') get LicenseStatus /VALUE" %_Nul6%') do set vProf=%%A
-)
-for /f "tokens=2 delims==" %%A in ('"wmic path %sps% get Version /VALUE" %_Nul6%') do set ver=%%A
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%LicenseFamily='OfficeVisioPrem-MAK'%_zz6% %_zz3% LicenseStatus %_zz8%"
+if %loc_off14% EQU 1 for /f "tokens=2 delims==" %%A in ('%_qr% %_Nul6%') do set vPrem=%%A
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%LicenseFamily='OfficeVisioPro-MAK'%_zz6% %_zz3% LicenseStatus %_zz8%"
+if %loc_off14% EQU 1 for /f "tokens=2 delims==" %%A in ('%_qr% %_Nul6%') do set vProf=%%A
+set "_qr=%_zz7% %sps% %_zz3% Version %_zz8%"
+for /f "tokens=2 delims==" %%A in ('%_qr% %_Nul6%') do set slsv=%%A
 reg add "HKLM\%OPPk%" /f /v KeyManagementServiceName /t REG_SZ /d "%KMS_IP%" %_Nul3%
 reg add "HKLM\%OPPk%" /f /v KeyManagementServicePort /t REG_SZ /d "%KMS_Port%" %_Nul3%
-for /f "tokens=2 delims==" %%G in ('"wmic path %spp% where (Description like '%%KMSCLIENT%%') get ID /VALUE"') do (set app=%%G&call :osppchk)
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%Description like '%%KMSCLIENT%%' %_zz6% %_zz3% ID %_zz8%"
+for /f "tokens=2 delims==" %%G in ('%_qr%') do (set app=%%G&call :osppchk)
 if %_AUR% EQU 0 (
 call :cREG %_Nul3%
 ) else (
@@ -955,12 +1029,13 @@ reg delete "HKLM\%OPPk%" /f /v DisableKeyManagementServiceHostCaching %_Null%
 exit /b
 
 :win8off
-wmic path %spp% get Description /value %_Nul2% | findstr /i KMSCLIENT %_Nul1% && (
+set "_qr=%_zz1% %spp% %_zz3% Description %_zz4%"
+%_qr% %_Nul2% | findstr /i KMSCLIENT %_Nul1% && (
 set Off1ce=1
 exit /b
 )
 set ret_off14=0
-wmic path %spp% get Description /value %_Nul2% | findstr /i channel %_Nul1% && (set ret_off14=1)
+%_qr% %_Nul2% | findstr /i channel %_Nul1% && (set ret_off14=1)
 if defined _C14R (echo.&echo %_mO14c%) else if %_O14MSI% EQU 1 (if %ret_off14% EQU 1 echo.&echo %_mO14m%)
 exit /b
 
@@ -971,21 +1046,25 @@ set Off1ce=1
 set _sC2R=win7off
 set _fC2R=ReturnOSPP
 set vol_off14=0&set vol_off15=0&set vol_off16=0&set vol_off19=0&set vol_off21=0
-wmic path %spp% where (Description like '%%KMSCLIENT%%' AND NOT Name like '%%MondoR_KMS_Automation%%') get Name /value > "!_temp!\sppchk.txt" 2>&1
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%Description like '%%KMSCLIENT%%' AND NOT Name like '%%MondoR_KMS_Automation%%' %_zz6% %_zz3% Name %_zz4%"
+%_qr% > "!_temp!\sppchk.txt" 2>&1
 find /i "Office 21" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off21=1)
 find /i "Office 19" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off19=1)
 find /i "Office 16" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off16=1)
 find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off15=1)
 find /i "Office 14" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off14=1)
 for %%A in (14,15,16,19,21) do if !loc_off%%A! EQU 0 set vol_off%%A=0
+set "_qr=%_zz1% %spp% %_zz2% "ApplicationID='%_oApp%' AND LicenseFamily like 'Office16O365%%'" %_zz3% LicenseFamily %_zz4%"
 if %vol_off16% EQU 1 find /i "Office16MondoVL_KMS_Client" "!_temp!\sppchk.txt" %_Nul1% && (
-wmic path %spp% where 'ApplicationID="%_oApp%" AND LicenseFamily like "Office16O365%%"' get LicenseFamily /value %_Nul2% | find /i "O365" %_Nul1% || (set vol_off16=0)
+%_qr% %_Nul2% | find /i "O365" %_Nul1% || (set vol_off16=0)
 )
+set "_qr=%_zz1% %spp% %_zz2% "ApplicationID='%_oApp%' AND LicenseFamily like 'OfficeO365%%'" %_zz3% LicenseFamily %_zz4%"
 if %vol_off15% EQU 1 find /i "OfficeMondoVL_KMS_Client" "!_temp!\sppchk.txt" %_Nul1% && (
-wmic path %spp% where 'ApplicationID="%_oApp%" AND LicenseFamily like "OfficeO365%%"' get LicenseFamily /value %_Nul2% | find /i "O365" %_Nul1% || (set vol_off15=0)
+%_qr% %_Nul2% | find /i "O365" %_Nul1% || (set vol_off15=0)
 )
 set ret_off14=0&set ret_off15=0&set ret_off16=0&set ret_off19=0&set ret_off21=0
-wmic path %spp% where (ApplicationID='%_oApp%' AND NOT Name like '%%O365%%') get Name /value > "!_temp!\sppchk.txt" 2>&1
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ApplicationID='%_oApp%' AND NOT Name like '%%O365%%' %_zz6% %_zz3% Name %_zz4%"
+%_qr% > "!_temp!\sppchk.txt" 2>&1
 find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 21" %_Nul1% && (set ret_off21=1)
 find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 19" %_Nul1% && (set ret_off19=1)
 find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 16" %_Nul1% && (set ret_off16=1)
@@ -994,7 +1073,8 @@ if %ret_off21% EQU 1 if %_O16MSI% EQU 0 set vol_off21=0
 if %ret_off19% EQU 1 if %_O16MSI% EQU 0 set vol_off19=0
 if %ret_off16% EQU 1 if %_O16MSI% EQU 0 set vol_off16=0
 if %ret_off15% EQU 1 if %_O15MSI% EQU 0 set vol_off15=0
-if %vol_off14% EQU 0 wmic path %spp% where ApplicationID='%_oA14%' get Description /value %_Nul2% | findstr /i channel %_Nul1% && (set ret_off14=1)
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ApplicationID='%_oA14%'%_zz6% %_zz3% Description %_zz4%"
+if %vol_off14% EQU 0 %_qr% %_Nul2% | findstr /i channel %_Nul1% && (set ret_off14=1)
 set run_off16=0
 if defined _C16R if %loc_off16% EQU 1 if %vol_off16% EQU 0 if %ret_off16% EQU 1 (
 for %%a in (%DO16Ids%) do find /i "Office16%%aR" "!_temp!\sppchk.txt" %_Nul1% && (
@@ -1010,7 +1090,8 @@ for %%a in (HomeBusiness,HomeStudent) do find /i "Office16%%aR" "!_temp!\sppchk.
   if %vol_off19% EQU 1 find /i "Office19Standard2019VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
   )
 )
-if defined _C16R if %loc_off16% EQU 1 if %run_off16% EQU 0 wmic path %spp% where (ApplicationID='%_oApp%' AND LicenseFamily like 'Office16O365%%') get LicenseFamily /value %_Nul2% | find /i "O365" %_Nul1% && (
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ApplicationID='%_oApp%' AND LicenseFamily like 'Office16O365%%' %_zz6% %_zz3% LicenseFamily %_zz4%"
+if defined _C16R if %loc_off16% EQU 1 if %run_off16% EQU 0 %_qr% %_Nul2% | find /i "O365" %_Nul1% && (
 find /i "Office16MondoVL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
 )
 set vol_offgl=1
@@ -1050,24 +1131,18 @@ if defined _C14R (echo.&echo %_mO14c%) else if %_O14MSI% EQU 1 (if %ret_off14% E
 exit /b
 
 :osppchk
-wmic path %spp% where ID='%app%' get Name /value > "!_temp!\sppchk.txt"
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ID='%app%'%_zz6% %_zz3% Name %_zz4%"
+%_qr% > "!_temp!\sppchk.txt"
 find /i "Office 14" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off14% EQU 0 exit /b)
 find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off15% EQU 0 exit /b)
 find /i "Office 16" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off16% EQU 0 exit /b)
 find /i "Office 19" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off19% EQU 0 exit /b)
 find /i "Office 21" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off21% EQU 0 exit /b)
-if /i '%app%' EQU 'f3fb2d68-83dd-4c8b-8f09-08e0d950ac3b' (
-wmic path %spp% get ID | findstr /i "fbdb3e18-a8ef-4fb3-9183-dffd60bd0984" %_Nul3% && (exit /b)
-)
-if /i '%app%' EQU '76093b1b-7057-49d7-b970-638ebcbfd873' (
-wmic path %spp% get ID | findstr /i "76881159-155c-43e0-9db7-2d70a9a3a4ca" %_Nul3% && (exit /b)
-)
-if /i '%app%' EQU 'a3b44174-2451-4cd6-b25f-66638bfb9046' (
-wmic path %spp% get ID | findstr /i "fb61ac9a-1688-45d2-8f6b-0674dbffa33c" %_Nul3% && (exit /b)
-)
 set _officespp=0
-wmic path %spp% where (PartialProductKey is not NULL) get ID /value %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate&exit /b)
-for /f "tokens=3 delims==, " %%G in ('"wmic path %spp% where ID='%app%' get Name /value"') do set OffVer=%%G
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%PartialProductKey is not NULL%_zz6% %_zz3% ID %_zz4%"
+%_qr% %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate&exit /b)
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%ID='%app%'%_zz6% %_zz3% Name %_zz8%"
+for /f "tokens=3 delims==, " %%G in ('%_qr%') do set OffVer=%%G
 call :offchk%OffVer%
 exit /b
 
@@ -1075,20 +1150,23 @@ exit /b
 set ls=0
 set ls2=0
 set ls3=0
-for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (LicenseFamily='Office%~1') get LicenseStatus /VALUE" %_Nul6%') do set /a ls=%%A
-if "%~3" NEQ "" for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (LicenseFamily='Office%~3') get LicenseStatus /VALUE" %_Nul6%') do set /a ls2=%%A
-if "%~5" NEQ "" for /f "tokens=2 delims==" %%A in ('"wmic path %spp% where (LicenseFamily='Office%~5') get LicenseStatus /VALUE" %_Nul6%') do set /a ls3=%%A
-if "%ls3%" EQU "1" (
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%LicenseFamily='Office%~1'%_zz6% %_zz3% LicenseStatus %_zz8%"
+for /f "tokens=2 delims==" %%A in ('%_qr% %_Nul6%') do set /a ls=%%A
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%LicenseFamily='Office%~3'%_zz6% %_zz3% LicenseStatus %_zz8%"
+if /i not "%~3"=="" for /f "tokens=2 delims==" %%A in ('%_qr% %_Nul6%') do set /a ls2=%%A
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%LicenseFamily='Office%~5'%_zz6% %_zz3% LicenseStatus %_zz8%"
+if /i not "%~5"=="" for /f "tokens=2 delims==" %%A in ('%_qr% %_Nul6%') do set /a ls3=%%A
+if "%ls3%"=="1" (
 echo Checking: %~6
 echo Product is Permanently Activated.
 exit /b
 )
-if "%ls2%" EQU "1" (
+if "%ls2%"=="1" (
 echo Checking: %~4
 echo Product is Permanently Activated.
 exit /b
 )
-if "%ls%" EQU "1" (
+if "%ls%"=="1" (
 echo Checking: %~2
 echo Product is Permanently Activated.
 exit /b
@@ -1314,12 +1392,15 @@ exit /b
 set S_OK=1
 echo.
 set "_key="
-if %ESU_ADD% EQU 0 for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where ID='%app%' get Name /VALUE"') do echo Installing Key: %%x
-if %ESU_ADD% EQU 1 for /f "tokens=2 delims==f" %%x in ('"wmic path %spp% where ID='%app%' get Name /VALUE"') do echo Installing Key: %%x
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%ID='%app%'%_zz6% %_zz3% Name %_zz8%"
+if %ESU_ADD% EQU 0 for /f "tokens=2 delims==" %%x in ('%_qr%') do echo Installing Key: %%x
+if %ESU_ADD% EQU 1 for /f "tokens=2 delims==f" %%x in ('%_qr%') do echo Installing Key: %%x
 set ESU_ADD=0
 call :keys %app%
 if "%_key%"=="" (echo No associated KMS Client key found&exit /b)
-wmic path %sps% where version='%ver%' call InstallProductKey ProductKey="%_key%" %_Nul3%
+set "_qr=wmic path %sps% where Version='%slsv%' call InstallProductKey ProductKey="%_key%""
+if %WMI_VBS% NEQ 0 set "_qr=%_csp% %sps% "%_key%""
+%_qr% %_Nul3%
 set ERRORCODE=%ERRORLEVEL%
 if %ERRORCODE% NEQ 0 (
 cmd /c exit /b %ERRORCODE%
@@ -1327,7 +1408,9 @@ echo Failed: 0x!=ExitCode!
 set S_OK=0
 exit /b
 )
-if %sps% EQU SoftwareLicensingService wmic path %sps% where version='%ver%' call RefreshLicenseStatus %_Nul3%
+set "_qr=wmic path %sps% where Version='%slsv%' call RefreshLicenseStatus"
+if %WMI_VBS% NEQ 0 set "_qr=%_csm% "%sps%.Version='%slsv%'" RefreshLicenseStatus"
+if %sps% EQU SoftwareLicensingService %_qr% %_Nul3%
 
 :activate
 set S_OK=1
@@ -1337,18 +1420,22 @@ if %_officespp% EQU 0 (reg delete "HKLM\%SPPk%\%_wApp%\%app%" /f %_Null%) else (
 reg delete "HKLM\%OPPk%\%_oA14%\%app%" /f %_Null%
 reg delete "HKLM\%OPPk%\%_oApp%\%app%" /f %_Null%
 )
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%ID='%app%'%_zz6% %_zz3% Name %_zz8%"
 if %W1nd0ws% EQU 0 if %_officespp% EQU 0 if %sps% EQU SoftwareLicensingService (
 reg add "HKLM\%SPPk%\%_wApp%\%app%" /f /v KeyManagementServiceName /t REG_SZ /d "127.0.0.2" %_Nul3%
 reg add "HKLM\%SPPk%\%_wApp%\%app%" /f /v KeyManagementServicePort /t REG_SZ /d "%KMS_Port%" %_Nul3%
 reg add "HKU\S-1-5-20\%SPPk%\%_wApp%\%app%" /f /v DiscoveredKeyManagementServiceIpAddress /t REG_SZ /d "127.0.0.2" %_Nul3%
-for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where ID='%app%' get Name /VALUE"') do echo Checking: %%x
+for /f "tokens=2 delims==" %%x in ('%_qr%') do echo Checking: %%x
 echo Product is KMS 2038 Activated.
 exit /b
 )
-if %ESU_ADD% EQU 0 for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where ID='%app%' get Name /VALUE"') do echo Activating: %%x
-if %ESU_ADD% EQU 1 for /f "tokens=2 delims==f" %%x in ('"wmic path %spp% where ID='%app%' get Name /VALUE"') do echo Activating: %%x
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%ID='%app%'%_zz6% %_zz3% Name %_zz8%"
+if %ESU_ADD% EQU 0 for /f "tokens=2 delims==" %%x in ('%_qr%') do echo Activating: %%x
+if %ESU_ADD% EQU 1 for /f "tokens=2 delims==f" %%x in ('%_qr%') do echo Activating: %%x
 set ESU_ADD=0
-wmic path %spp% where ID='%app%' call Activate %_Nul3%
+set "_qr=wmic path %spp% where ID='%app%' call Activate"
+if %WMI_VBS% NEQ 0 set "_qr=%_csm% "%spp%.ID='%app%'" Activate"
+%_qr% %_Nul3%
 call set ERRORCODE=%ERRORLEVEL%
 if %ERRORCODE% EQU -1073418187 (
 echo Product Activation Failed: 0xC004F035
@@ -1364,12 +1451,13 @@ exit /b
 )
 if %ERRORCODE% NEQ 0 (
 if %sps% EQU SoftwareLicensingService (call :StopService sppsvc) else (call :StopService osppsvc)
-wmic path %spp% where ID='%app%' call Activate %_Nul3%
+%_qr% %_Nul3%
 call set ERRORCODE=!ERRORLEVEL!
 )
 set gpr=0
 set gpr2=0
-for /f "tokens=2 delims==" %%x in ('"wmic path %spp% where ID='%app%' get GracePeriodRemaining /VALUE"') do (set gpr=%%x&set /a "gpr2=(%%x+1440-1)/1440")
+set "_qr=%_zz7% %spp% %_zz2% %_zz5%ID='%app%'%_zz6% %_zz3% GracePeriodRemaining %_zz8%"
+for /f "tokens=2 delims==" %%x in ('%_qr%') do (set gpr=%%x&set /a "gpr2=(%%x+1440-1)/1440")
 if %ERRORCODE% EQU 0 if %gpr% EQU 0 (
 echo Product Activation succeeded, but Remaining Period failed to increase.
 if %OSType% EQU Win7 echo This could be related to the error described in KB4487266
@@ -1418,8 +1506,10 @@ echo.&echo %line3%&echo.
 echo Installing Local KMS Emulator...
 )
 set "AddExc="
+set "_qr=WMIC /NAMESPACE:\\root\Microsoft\Windows\Defender PATH MSFT_MpPreference call Add ExclusionPath=%_Hook% Force=True"
+if %WMI_VBS% NEQ 0 set "_qr=%_csd% Add %_Hook%"
 if %winbuild% GEQ 9600 (
-  WMIC /NAMESPACE:\\root\Microsoft\Windows\Defender PATH MSFT_MpPreference call Add ExclusionPath=%_Hook% Force=True %_Nul3% && set "AddExc= and Windows Defender exclusion"
+  %_qr% %_Nul3% && set "AddExc= and Windows Defender exclusion"
 )
 if %_verb% EQU 1 (
 echo.
@@ -1469,9 +1559,11 @@ set "_para=/d /r"
 goto :DoDebug
 )
 set "RemExc="
+set "_qr=WMIC /NAMESPACE:\\root\Microsoft\Windows\Defender PATH MSFT_MpPreference call Remove ExclusionPath=%_Hook% Force=True"
+if %WMI_VBS% NEQ 0 set "_qr=%_csd% Remove %_Hook%"
 if %winbuild% GEQ 9600 (
   for %%# in (NoGenTicket,NoAcquireGT) do reg delete "HKLM\SOFTWARE\Policies\Microsoft\Windows NT\CurrentVersion\Software Protection Platform" /v %%# /f %_Null%
-  WMIC /NAMESPACE:\\root\Microsoft\Windows\Defender PATH MSFT_MpPreference call Remove ExclusionPath=%_Hook% Force=True %_Nul3% && set "RemExc= and Windows Defender exclusions"
+  %_qr% %_Nul3% && set "RemExc= and Windows Defender exclusions"
 )
 if %_verb% EQU 1 (
 if %Silent% EQU 0 if %_Debug% EQU 0 (
@@ -1615,9 +1707,11 @@ echo Verify that Antivirus protection is OFF or the registry path is excluded.
 
 set E_WMI=0
 for /f "skip=2 tokens=2*" %%a in ('reg query HKLM\SYSTEM\CurrentControlSet\Services\WinMgmt /v Start %_Nul6%') do if /i %%b equ 0x4 set E_WMI=1
-wmic /locale:ms_409 computersystem get Name /value %_Nul2% | find /i "Name" %_Nul1%
+set "_qr=%_zz1% Win32_ComputerSystem %_zz3% CreationClassName %_zz4%"
+%_qr% %_Nul2% | find /i "computersystem" %_Nul1%
 if %errorlevel% NEQ 0 set E_WMI=1
-wmic /locale:ms_409 path SoftwareLicensingService get Version /value %_Nul2% | find /i "Version" %_Nul1%
+set "_qr=%_zz1% SoftwareLicensingService %_zz3% Version %_zz4%"
+%_qr% %_Nul2% | find /i "." %_Nul1%
 if %errorlevel% NEQ 0 set E_WMI=1
 if %E_WMI% EQU 1 (
 echo.
@@ -1750,7 +1844,6 @@ goto :eof
 :CreateOEM
 cls
 set "_oem=!_work!"
-copy /y nul "!_work!\#.rw" 1>nul 2>nul && (if exist "!_work!\#.rw" del /f /q "!_work!\#.rw") || (set "_oem=!_dsk!")
 if exist "!_oem!\$OEM$\" (
 echo.&echo %line3%&echo.
 echo $OEM$ Folder already exist...
@@ -1927,7 +2020,8 @@ set _sps=OfficeSoftwareProtectionService
 set _vbsi="!_OSPP15VBS!" /inslic:
 )
 set "_wmi="
-for /f "tokens=2 delims==" %%# in ('"wmic path %_sps% get version /value" %_Nul6%') do set "_wmi=%%#"
+set "_qr=%_zz7% %_sps% %_zz3% Version %_zz8%"
+for /f "tokens=2 delims==" %%# in ('%_qr%') do set _wmi=%%#
 if "%_wmi%"=="" (
 goto :%_fC2R%
 )
@@ -1951,7 +2045,10 @@ reg query %kNext% | findstr /i /r "visio.*" %_Nul2% | find /i "0x2" %_Nul1% && s
 reg query %kNext% | findstr /i /r "visio.*" %_Nul2% | find /i "0x3" %_Nul1% && set sub_vis=1
 )
 set _Retail=0
-wmic path %_spp% where "ApplicationID='%_oApp%' AND LicenseStatus='1' AND PartialProductKey<>NULL" get Description %_Nul2% |findstr /V /R "^$" >"!_temp!\crvRetail.txt"
+set "_ocq=ApplicationID='%_oApp%' AND LicenseStatus='1' AND PartialProductKey is not NULL"
+if %WMI_VBS% EQU 0 wmic path %_spp% where (%_ocq%) get Description %_Nul2% |findstr /V /R "^$" >"!_temp!\crvRetail.txt"
+set "_qr=%_csq% %_spp% "%_ocq%" Description"
+if %WMI_VBS% NEQ 0 %_qr% %_Nul2% >"!_temp!\crvRetail.txt"
 find /i "RETAIL channel" "!_temp!\crvRetail.txt" %_Nul1% && set _Retail=1
 find /i "RETAIL(MAK) channel" "!_temp!\crvRetail.txt" %_Nul1% && set _Retail=1
 find /i "TIMEBASED_SUB channel" "!_temp!\crvRetail.txt" %_Nul1% && set _Retail=1
@@ -1985,8 +2082,12 @@ if %Unattend% EQU 0 title %_title%
 set _O16O365=0
 set _C16Msg=0
 set _C15Msg=0
-if %_Retail% EQU 1 wmic path %_spp% where "ApplicationID='%_oApp%' AND LicenseStatus='1' AND PartialProductKey<>NULL" get LicenseFamily %_Nul2% |findstr /V /R "^$" >"!_temp!\crvRetail.txt"
-wmic path %_spp% where "ApplicationID='%_oApp%'" get LicenseFamily %_Nul2% |findstr /V /R "^$" >"!_temp!\crvVolume.txt" 2>&1
+set "_qr=%_csq% %_spp% "%_ocq%" LicenseFamily"
+if %_Retail% EQU 1 if %WMI_VBS% EQU 0 wmic path %_spp% where (%_ocq%) get LicenseFamily %_Nul2% |findstr /V /R "^$" >"!_temp!\crvRetail.txt"
+if %_Retail% EQU 1 if %WMI_VBS% NEQ 0 %_qr% %_Nul2% >"!_temp!\crvRetail.txt"
+set "_qr=%_csq% %_spp% "ApplicationID='%_oApp%'" LicenseFamily"
+if %WMI_VBS% EQU 0 wmic path %_spp% where "ApplicationID='%_oApp%'" get LicenseFamily %_Nul2% |findstr /V /R "^$" >"!_temp!\crvVolume.txt" 2>&1
+if %WMI_VBS% NEQ 0 %_qr% %_Nul2% >"!_temp!\crvVolume.txt" 2>&1
 
 if %_Office16% EQU 0 goto :R15V
 
@@ -2065,8 +2166,9 @@ if %_Retail% EQU 1 reg query %_PRIDs%\ProPlusRetail.16 %_Nul3% && (
   find /i "Office16ProPlusMSDNR_" "!_temp!\crvRetail.txt" %_Nul1% && (set _ProPlus=0 & set aC2R16=1)
   find /i "Office16ProPlusVL_MAK" "!_temp!\crvRetail.txt" %_Nul1% && (set _ProPlus=0 & set aC2R16=1)
 )
+set "_qr=%_zz1% %_spp% %_zz2% "ApplicationID='%_oApp%' AND LicenseFamily like 'Office16O365%%'" %_zz3% LicenseFamily %_zz4%"
 find /i "Office16MondoVL_KMS_Client" "!_temp!\crvVolume.txt" %_Nul1% && (
-wmic path %spp% where 'ApplicationID="%_oApp%" AND LicenseFamily like "Office16O365%%"' get LicenseFamily /value %_Nul2% | find /i "O365" %_Nul1% && (
+%_qr% %_Nul2% | find /i "O365" %_Nul1% && (
   for %%a in (O365ProPlus,O365Business,O365SmallBusPrem,O365HomePrem,O365EduCloud) do set _%%a=0
   )
 )
@@ -2309,8 +2411,9 @@ if %_Retail% EQU 1 reg query %_PR15IDs%\Active\ProPlusRetail\x-none %_Nul3% && (
   find /i "OfficeProPlusMSDNR_" "!_temp!\crvRetail.txt" %_Nul1% && (set _ProPlus=0 & set aC2R15=1)
   find /i "OfficeProPlusVL_MAK" "!_temp!\crvRetail.txt" %_Nul1% && (set _ProPlus=0 & set aC2R15=1)
 )
+set "_qr=%_zz1% %_spp% %_zz2% "ApplicationID='%_oApp%' AND LicenseFamily like 'OfficeO365%%'" %_zz3% LicenseFamily %_zz4%"
 find /i "OfficeMondoVL_KMS_Client" "!_temp!\crvVolume.txt" %_Nul1% && (
-wmic path %spp% where 'ApplicationID="%_oApp%" AND LicenseFamily like "OfficeO365%%"' get LicenseFamily /value %_Nul2% | find /i "O365" %_Nul1% && (
+%_qr% %_Nul2% | find /i "O365" %_Nul1% && (
   for %%a in (O365ProPlus,O365Business,O365SmallBusPrem,O365HomePrem) do set _%%a=0
   )
 )
@@ -2432,7 +2535,9 @@ reg delete %_OSPP15Ready% /f /v %_ID%.OSPPReady %_Nul3%
 for %%# in ("!_Licenses15Path!\%_patt%*.xrm-ms") do (
 %_cscript% %_vbsi%"!_Licenses15Path!\%%~nx#"
 )
-if defined _pkey wmic path %_sps% where version='%_wmi%' call InstallProductKey ProductKey="%_pkey%" %_Nul3%
+set "_qr=wmic path %_sps% where Version='%_wmi%' call InstallProductKey ProductKey="%_pkey%""
+if %WMI_VBS% NEQ 0 set "_qr=%_csp% %_sps% "%_pkey%""
+if defined _pkey %_qr% %_Nul3%
 reg add %_OSPP15Ready% /f /v %_ID%.OSPPReady /t %_OSPP15ReadT% /d 1 %_Nul1%
 reg query %_Con15fig% %_Nul2% | findstr /I "%_ID%" %_Nul1%
 if %errorlevel% NEQ 0 (
@@ -2447,7 +2552,9 @@ for %%a in (%_RetIds%,ProPlus) do set "_%%a="
 if %_Office15% EQU 1 (
 for %%a in (%_R15Ids%,ProPlus) do set "_%%a="
 )
-if %winbuild% GEQ 9200 wmic path %_sps% where version='%_wmi%' call RefreshLicenseStatus %_Nul3%
+set "_qr=wmic path %_sps% where version='%_wmi%' call RefreshLicenseStatus"
+if %WMI_VBS% NEQ 0 set "_qr=%_csm% "%_sps%.Version='%_wmi%'" RefreshLicenseStatus"
+if %winbuild% GEQ 9200 %_qr% %_Nul3%
 if exist "%SysPath%\spp\store_test\2.0\tokens.dat" if defined _copp (
 %_cscript% %_SLMGR% /rilc
 )
@@ -2458,7 +2565,7 @@ cls
 mode con cols=100 lines=32
 %_Nul3% %_psc% "&%_buf%"
 title Check Activation Status [vbs]
-setlocal EnableDelayedExpansion
+setlocal
 set _sO16vbs=0
 set _sO15vbs=0
 if exist "%ProgramFiles%\Microsoft Office\Office15\ospp.vbs" (
@@ -2638,7 +2745,7 @@ goto :eof
 cls
 mode con cols=100 lines=32
 %_Nul3% %_psc% "&%_buf%"
-title Check Activation Status [wmic]
+title Check Activation Status [wmi]
 setlocal
 set wspp=SoftwareLicensingProduct
 set wsps=SoftwareLicensingService
@@ -2652,15 +2759,16 @@ set "spp_get=Description, DiscoveredKeyManagementServiceMachineName, DiscoveredK
 set "ospp_get=%spp_get%"
 if %winbuild% GEQ 9200 set "spp_get=%spp_get%, KeyManagementServiceLookupDomain, VLActivationTypeEnabled"
 if %winbuild% GEQ 9600 set "spp_get=%spp_get%, DiscoveredKeyManagementServiceMachineIpAddress, ProductKeyChannel"
-set OsppHook=1
-sc query osppsvc >nul 2>&1
-if %errorlevel% EQU 1060 set OsppHook=0
 set _Identity=0
 dir /b /s /a:-d "!_Local!\Microsoft\Office\Licenses\*1*" 1>nul 2>nul && set _Identity=1
 dir /b /s /a:-d "!ProgramData!\Microsoft\Office\Licenses\*1*" 1>nul 2>nul && set _Identity=1
 if %winbuild% LSS 9200 if not exist "%SystemRoot%\servicing\Packages\Microsoft-Windows-PowerShell-WTR-Package~*.mum" set _Identity=0
 set _pwrsh=1
 if not exist "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" set _pwrsh=0
+
+set OsppHook=1
+sc query osppsvc >nul 2>&1
+if %errorlevel% EQU 1060 set OsppHook=0
 
 net start sppsvc /y >nul 2>&1
 call :casWpkey %wspp% %winApp% cW1nd0ws sppw
@@ -2680,7 +2788,8 @@ echo Error: product key not found.
 goto :casWcon
 )
 set winID=1
-for /f "tokens=2 delims==" %%# in ('"wmic path %wspp% where (ApplicationID='%winApp%' and PartialProductKey is not null) get ID /value"') do (
+set "_qr=%_zz7% %wspp% %_zz2% %_zz5%ApplicationID='%winApp%' and PartialProductKey is not null%_zz6% %_zz3% ID %_zz8%"
+for /f "tokens=2 delims==" %%# in ('%_qr%') do (
   set "chkID=%%#"
   call :casWdet "%wspp%" "%wsps%" "%spp_get%"
   call :casWout
@@ -2698,7 +2807,8 @@ goto :casWend
 echo %line2%
 echo ***                   Office Status                      ***
 echo %line2%
-for /f "tokens=2 delims==" %%# in ('"wmic path %wspp% where (ApplicationID='%o15App%' and PartialProductKey is not null) get ID /value"') do (
+set "_qr=%_zz7% %wspp% %_zz2% %_zz5%ApplicationID='%o15App%' and PartialProductKey is not null%_zz6% %_zz3% ID %_zz8%"
+for /f "tokens=2 delims==" %%# in ('%_qr%') do (
   set "chkID=%%#"
   call :casWdet "%wspp%" "%wsps%" "%spp_get%"
   call :casWout
@@ -2715,14 +2825,16 @@ echo %line2%
 echo ***                   Office Status                      ***
 echo %line2%
 )
-if defined ospp15 for /f "tokens=2 delims==" %%# in ('"wmic path %ospp% where (ApplicationID='%o15App%' and PartialProductKey is not null) get ID /value"') do (
+set "_qr=%_zz7% %ospp% %_zz2% %_zz5%ApplicationID='%o15App%' and PartialProductKey is not null%_zz6% %_zz3% ID %_zz8%"
+if defined ospp15 for /f "tokens=2 delims==" %%# in ('%_qr%') do (
   set "chkID=%%#"
   call :casWdet "%ospp%" "%osps%" "%ospp_get%"
   call :casWout
   echo %line3%
   echo.
 )
-if defined ospp14 for /f "tokens=2 delims==" %%# in ('"wmic path %ospp% where (ApplicationID='%o14App%' and PartialProductKey is not null) get ID /value"') do (
+set "_qr=%_zz7% %ospp% %_zz2% %_zz5%ApplicationID='%o14App%' and PartialProductKey is not null%_zz6% %_zz3% ID %_zz8%"
+if defined ospp14 for /f "tokens=2 delims==" %%# in ('%_qr%') do (
   set "chkID=%%#"
   call :casWdet "%ospp%" "%osps%" "%ospp_get%"
   call :casWout
@@ -2732,18 +2844,21 @@ if defined ospp14 for /f "tokens=2 delims==" %%# in ('"wmic path %ospp% where (A
 goto :casWend
 
 :casWpkey
-wmic path %1 where (ApplicationID='%2' and PartialProductKey is not null) get ID /value 2>nul | findstr /i ID 1>nul && (set %3=1&set %4=1)
+set "_qr=%_zz1% %1 %_zz2% %_zz5%ApplicationID='%2' and PartialProductKey is not null%_zz6% %_zz3% ID %_zz4%"
+%_qr% 2>nul | findstr /i ID 1>nul && (set %3=1&set %4=1)
 exit /b
 
 :casWdet
 for %%# in (%~3) do set "%%#="
-if %~1 EQU %ospp% for %%# in (DiscoveredKeyManagementServiceMachineIpAddress, KeyManagementServiceLookupDomain, ProductKeyChannel, VLActivationTypeEnabled) do set "%%#="
+if /i %~1==%ospp% for %%# in (DiscoveredKeyManagementServiceMachineIpAddress, KeyManagementServiceLookupDomain, ProductKeyChannel, VLActivationTypeEnabled) do set "%%#="
 set "cKmsClient="
 set "cTblClient="
 set "cAvmClient="
 set "ExpireMsg="
 set "_xpr="
-for /f "tokens=* delims=" %%# in ('"wmic path %~1 where ID='%chkID%' get %~3 /value" ^| findstr ^=') do set "%%#"
+set "_qr="wmic path %~1 where ID='%chkID%' get %~3 /value" ^| findstr ^="
+if %WMI_VBS% NEQ 0 set "_qr=%_csg% %~1 "ID='%chkID%'" "%~3""
+for /f "tokens=* delims=" %%# in ('%_qr%') do set "%%#"
 
 set /a _gpr=(GracePeriodRemaining+1440-1)/1440
 echo %Description%| findstr /i VOLUME_KMSCLIENT 1>nul && (set cKmsClient=1&set _mTag=Volume)
@@ -2752,8 +2867,13 @@ echo %Description%| findstr /i VIRTUAL_MACHINE_ACTIVATION 1>nul && (set cAvmClie
 cmd /c exit /b %LicenseStatusReason%
 set "LicenseReason=%=ExitCode%"
 set "LicenseMsg=Time remaining: %GracePeriodRemaining% minute(s) (%_gpr% day(s))"
-if %_pwrsh% EQU 1 if %_gpr% GEQ 1 for /f "tokens=* delims=" %%# in ('%_psc% "$([DateTime]::Now.addMinutes(%GracePeriodRemaining%)).ToString('yyyy-MM-dd HH:mm:ss')" 2^>nul') do set "_xpr=%%#"
-title Check Activation Status [wmic]
+if %_gpr% GEQ 1 if %_WSH% EQU 1 (
+for /f "tokens=* delims=" %%# in ('%_csx% %GracePeriodRemaining%') do set "_xpr=%%#"
+)
+if %_gpr% GEQ 1 if %_pwrsh% EQU 1 if not defined _xpr (
+for /f "tokens=* delims=" %%# in ('%_psc% "$([DateTime]::Now.addMinutes(%GracePeriodRemaining%)).ToString('yyyy-MM-dd HH:mm:ss')" 2^>nul') do set "_xpr=%%#"
+title Check Activation Status [wmi]
+)
 
 if %LicenseStatus% EQU 0 (
 set "License=Unlicensed"
@@ -2806,11 +2926,13 @@ if %DiscoveredKeyManagementServiceMachinePort%==0 set DiscoveredKeyManagementSer
 set "KmsDns=KMS machine name from DNS: %DiscoveredKeyManagementServiceMachineName%:%DiscoveredKeyManagementServiceMachinePort%"
 if "%DiscoveredKeyManagementServiceMachineName%"=="" set "KmsDns=DNS auto-discovery: KMS name not available"
 
-for /f "tokens=* delims=" %%# in ('"wmic path %~2 get ClientMachineID, KeyManagementServiceHostCaching /value" ^| findstr ^=') do set "%%#"
+set "_qr="wmic path %~2 get ClientMachineID, KeyManagementServiceHostCaching /value" ^| findstr ^="
+if %WMI_VBS% NEQ 0 set "_qr=%_csg% %~2 "ClientMachineID, KeyManagementServiceHostCaching""
+for /f "tokens=* delims=" %%# in ('%_qr%') do set "%%#"
 if /i %KeyManagementServiceHostCaching%==True (set KeyManagementServiceHostCaching=Enabled) else (set KeyManagementServiceHostCaching=Disabled)
 
 if %winbuild% LSS 9200 exit /b
-if %~1 EQU %ospp% exit /b
+if /i %~1==%ospp% exit /b
 
 if "%KeyManagementServiceLookupDomain%"=="" set "KeyManagementServiceLookupDomain="
 
@@ -2869,7 +2991,7 @@ echo %line2%
 echo ***                  Office vNext Status                 ***
 echo %line2%
 %_psc% "$f=[IO.File]::ReadAllText('!_batp!') -split ':vNextDiag\:.*';iex ($f[1])"
-title Check Activation Status [wmic]
+title Check Activation Status [wmi]
 echo %line3%
 echo.
 )
@@ -4701,6 +4823,12 @@ Add-Type -Language CSharp -TypeDefinition @"
       this is false-positive, as long as you download the file from the trusted Home Page.</li>
     </ul>
     <ul>
+      <li>wmic.exe tool is removed from Windows 11 build 22483 and later.
+      <div>In order to overcome this, KMS_VL_ALL v45 and later incorporate simple VBScripts to query and execute WMI functions.<br />
+      <div>This require Windows Script Host to be working and <u>not disabled</u>.<br />
+      <div>Furthermore, be advised, this may increase the ratio for marking the script(s) as a security threat.</div></li>
+    </ul>
+    <ul>
       <li>Home Page:<br />
       <a href="https://forums.mydigitallife.net/posts/838808/" target="_blank">https://forums.mydigitallife.net/posts/838808/</a><br />
       Backup links:<br />
@@ -4765,7 +4893,7 @@ Add-Type -Language CSharp -TypeDefinition @"
       <div>On Windows 8.1/10, it also handles the localhost restriction for KMS activation and redirects any local/private IP address as it were external (different stack).</div></li>
     </ul>
     <ul>
-      <li>The activation script consists of advanced checks and commands of Windows Management Instrumentation Command <strong>WMIC</strong> utility, that query the properties and executes the methods of Windows and Office licensing classes,<br />
+      <li>KMS_VL_ALL scripts make use of Windows Management Instrumentation <strong>WMI</strong> utilities, which query the properties and executes the methods of Windows and Office licensing classes,<br />
       providing a native activation processing, which is almost identical to the official VBScript tools slmgr.vbs and ospp.vbs, but in an automated way.</li>
     </ul>
     <ul>
@@ -4773,7 +4901,7 @@ Add-Type -Language CSharp -TypeDefinition @"
       <div>copy or link the file <code>"C:\Windows\System32\SppExtComObjHook.dll"</code><br />
       add the hook registry keys to <code>"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options"</code><br />
       add osppsvc.exe keys to <code>"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform"</code><br />
-      create schedule task <code>"\Microsoft\Windows\SoftwareProtectionPlatform\SvcTrigger"</code> on Windows 8 and later</div></li>
+      create schedule task <code>"\Microsoft\Windows\SoftwareProtectionPlatform\SvcTrigger"</code> (on Windows 8 and later)</div></li>
     </ul>
             <hr />
             <br />
@@ -5008,9 +5136,9 @@ Add-Type -Language CSharp -TypeDefinition @"
       <li>shows the activation expiration date for Windows</li>
       <li>Office 2010 ospp.vbs shows a very little info</li>
     </ul>
-    <p><strong>Check Activation Status [wmic]</strong>:</p>
+    <p><strong>Check Activation Status [wmi]</strong>:</p>
     <ul>
-      <li>query and execute native WMI functions, no vbscripting involved</li>
+      <li>query and execute WMI functions using wmic.exe, or vbscripting</li>
       <li>shows extra more info (SKU ID, key channel)</li>
       <li>shows the activation expiration date for all products</li>
       <li>shows more detailed info for Office 2010</li>
@@ -5370,6 +5498,17 @@ if %Unattend% EQU 1 goto :eof
 pause >nul
 goto :eof
 
+:E_VBS
+echo %_err%
+echo Windows Script Host is disabled.
+echo It is required for this script to work.
+echo.
+echo Press any key to exit.
+if %_Debug% EQU 1 goto :eof
+if %Unattend% EQU 1 goto :eof
+pause >nul
+goto :eof
+
 :UnsupportedVersion
 echo %_err%
 echo Unsupported OS version Detected.
@@ -5386,23 +5525,100 @@ goto :eof
 
 ----- Begin wsf script --->
 <package>
+   <job id="WmiQuery">
+      <script language="VBScript">
+         If WScript.Arguments.Count = 3 Then
+            wExc = "Select " & WScript.Arguments.Item(2) & " from " & WScript.Arguments.Item(0) & " where " & WScript.Arguments.Item(1)
+            wGet = WScript.Arguments.Item(2)
+         Else
+            wExc = "Select " & WScript.Arguments.Item(1) & " from " & WScript.Arguments.Item(0)
+            wGet = WScript.Arguments.Item(1)
+         End If
+         Set objCol = GetObject("winmgmts:\\.\root\CIMV2").ExecQuery(wExc,,48)
+         For Each objItm in objCol
+            For each Prop in objItm.Properties_
+               If LCase(Prop.Name) = LCase(wGet) Then
+                  WScript.Echo Prop.Name & "=" & Prop.Value
+                  Exit For
+               End If
+            Next
+         Next
+      </script>
+   </job>
+   <job id="WmiMethod">
+      <script language="VBScript">
+         On Error Resume Next
+         wPath = WScript.Arguments.Item(0)
+         wMethod = WScript.Arguments.Item(1)
+         Set objCol = GetObject("winmgmts:\\.\root\CIMV2:" & wPath)
+         objCol.ExecMethod_(wMethod)
+         WScript.Quit Err.Number
+      </script>
+   </job>
+   <job id="WmiPKey">
+      <script language="VBScript">
+         On Error Resume Next
+         wExc = "SELECT Version FROM " & WScript.Arguments.Item(0)
+         wKey = WScript.Arguments.Item(1)
+         Set objWMIService = GetObject("winmgmts:\\.\root\CIMV2").ExecQuery(wExc,,48)
+         For each colService in objWMIService
+            Exit For
+         Next
+         set objService = colService
+         objService.InstallProductKey(wKey)
+         WScript.Quit Err.Number
+      </script>
+   </job>
+   <job id="XPDT">
+      <script language="VBScript">
+         WScript.Echo DateAdd("n", WScript.Arguments.Item(0), Now)
+      </script>
+   </job>
+   <job id="MPS">
+      <script language="VBScript">
+         On Error Resume Next
+         wMethod = WScript.Arguments.Item(0)
+         wValue = WScript.Arguments.Item(1)
+         Set objID = GetObject("winmgmts:\\.\root\Microsoft\Windows\Defender").ExecQuery("Select ComputerID from MSFT_MpPreference")
+         For Each objItm in objID
+            cid = objItm.ComputerID
+         Next
+         Set objCol = GetObject("winmgmts:\\.\root\Microsoft\Windows\Defender:MSFT_MpPreference.ComputerID='" & cid & "'")
+         Set objInp = objCol.Methods_(wMethod).inParameters.SpawnInstance_()
+         objInp.Properties_.Item("ExclusionPath") = Split(wValue, ";")
+         objInp.Properties_.Item("Force") = True
+         Set objOut = objCol.ExecMethod_(wMethod, objInp)
+         WScript.Quit Err.Number
+      </script>
+   </job>
+   <job id="WmiMulti">
+      <script language="VBScript">
+         If WScript.Arguments.Count = 3 Then
+            wExc = "Select " & WScript.Arguments.Item(2) & " from " & WScript.Arguments.Item(0) & " where " & WScript.Arguments.Item(1)
+         Else
+            wExc = "Select " & WScript.Arguments.Item(1) & " from " & WScript.Arguments.Item(0)
+         End If
+         Set objCol = GetObject("winmgmts:\\.\root\CIMV2").ExecQuery(wExc,,48)
+         For Each objItm in objCol
+            For each Prop in objItm.Properties_
+               WScript.Echo Prop.Name & "=" & Prop.Value
+            Next
+         Next
+      </script>
+   </job>
    <job id="ELAV">
-       <script language="VBScript">
-           Set strArg=WScript.Arguments.Named
-           If Not strArg.Exists("File") Then
-               Wscript.Echo "Switch /File:<File> is missing."
-               WScript.Quit 1
-           End If
-           Set strRdlproc = CreateObject("WScript.Shell").Exec("rundll32 kernel32,Sleep")
-           With GetObject("winmgmts:\\.\root\CIMV2:Win32_Process.Handle='" & strRdlproc.ProcessId & "'")
-               With GetObject("winmgmts:\\.\root\CIMV2:Win32_Process.Handle='" & .ParentProcessId & "'")
-                   If InStr (.CommandLine, WScript.ScriptName) <> 0 Then
-                       strLine = Mid(.CommandLine, InStr(.CommandLine , "/File:") + Len(strArg("File")) + 8)
-                   End If
-               End With
-               .Terminate
-           End With
-          CreateObject("Shell.Application").ShellExecute "cmd.exe", "/c " & chr(34) & chr(34) & strArg("File") & chr(34) & strLine & chr(34), "", "runas", 1
-       </script>
+      <script language="VBScript">
+         Set strArg=WScript.Arguments.Named
+         Set strRdlproc = CreateObject("WScript.Shell").Exec("rundll32 kernel32,Sleep")
+         With GetObject("winmgmts:\\.\root\CIMV2:Win32_Process.Handle='" & strRdlproc.ProcessId & "'")
+            With GetObject("winmgmts:\\.\root\CIMV2:Win32_Process.Handle='" & .ParentProcessId & "'")
+               If InStr (.CommandLine, WScript.ScriptName) <> 0 Then
+                  strLine = Mid(.CommandLine, InStr(.CommandLine , "/File:") + Len(strArg("File")) + 8)
+               End If
+            End With
+            .Terminate
+         End With
+         CreateObject("Shell.Application").ShellExecute "cmd.exe", "/c " & chr(34) & chr(34) & strArg("File") & chr(34) & strLine & chr(34), "", "runas", 1
+      </script>
    </job>
 </package>
