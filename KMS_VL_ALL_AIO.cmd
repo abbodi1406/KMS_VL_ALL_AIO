@@ -236,10 +236,11 @@ set _NCS=1
 if %winbuild% LSS 10586 set _NCS=0
 if %winbuild% GEQ 10586 reg query "HKCU\Console" /v ForceV2 2>nul | find /i "0x0" 1>nul && (set _NCS=0)
 setlocal EnableDelayedExpansion
+set "_oem=!_work!"
 copy /y nul "!_work!\#.rw" 1>nul 2>nul && (
 if exist "!_work!\#.rw" del /f /q "!_work!\#.rw"
 ) || (
-set "_work=!_dsk!"
+set "_oem=!_dsk!"
 set "_log=!_dsk!\%~n0"
 if %Logger% EQU 1 set _run="!_dsk!\%~n0_Silent.log"
 )
@@ -324,7 +325,7 @@ set ESU_EDT=0
 if %ESU_KMS% EQU 1 for %%A in (%ESUEditions%) do (
   if exist "%SysPath%\spp\tokens\skus\Security-SPP-Component-SKU-%%A\*.xrm-ms" set ESU_EDT=1
 )
-if %ESU_EDT% EQU 1 set SSppHook=1
+:: if %ESU_EDT% EQU 1 set SSppHook=1
 set ESU_ADD=0
 
 if %winbuild% GEQ 9200 (
@@ -352,8 +353,7 @@ set Unattend=1
 set _ReAR=0
 set _AUR=0
 if exist %_Hook% dir /b /al %_Hook% %_Nul3% || (
-  reg query "%IFEO%\%SppVer%" /v VerifierFlags %_Nul3% && set _AUR=1
-  if %SSppHook% EQU 0 reg query "%IFEO%\osppsvc.exe" /v VerifierFlags %_Nul3% && set _AUR=1
+  reg query "%IFEO%\%SppVer%" /v VerifierFlags %_Nul3% && (set _AUR=1) || (reg query "%IFEO%\osppsvc.exe" /v VerifierFlags %_Nul3% && set _AUR=1)
 )
 if %fAUR% EQU 1 (set _ReAR=1&if %_AUR% EQU 0 (set _AUR=1&set _verb=1&set _rtr=DoActivate&cls&goto :InstallHook) else (set _verb=0&set _rtr=DoActivate&cls&goto :InstallHook))
 if %External% EQU 0 (set _AUR=0&cls&goto :DoActivate)
@@ -369,8 +369,7 @@ set _dMode=Manual
 set _ReAR=0
 set _AUR=0
 if exist %_Hook% dir /b /al %_Hook% %_Nul3% || (
-  reg query "%IFEO%\%SppVer%" /v VerifierFlags %_Nul3% && (set _AUR=1&set "_dMode=Auto Renewal")
-  if %SSppHook% EQU 0 reg query "%IFEO%\osppsvc.exe" /v VerifierFlags %_Nul3% && (set _AUR=1&set "_dMode=Auto Renewal")
+  reg query "%IFEO%\%SppVer%" /v VerifierFlags %_Nul3% && (set _AUR=1&set "_dMode=Auto Renewal") || (reg query "%IFEO%\osppsvc.exe" /v VerifierFlags %_Nul3% && (set _AUR=1&set "_dMode=Auto Renewal"))
 )
 if %_AUR% EQU 0 (set "_dHook=Not Installed") else (set "_dHook=Installed")
 if %ActWindows% EQU 0 (set _dAwin=No) else (set _dAwin=Yes)
@@ -892,6 +891,7 @@ if /i '%app%' EQU '%%A' exit /b
 )
 if not defined EditionID (call :winchk&exit /b)
 if %winbuild% LSS 14393 (call :winchk&exit /b)
+if /i '%app%' EQU '32d2fab3-e4a8-42c2-923b-4bf4fd13e6ee' if /i %EditionID% NEQ EnterpriseS exit /b
 if /i '%app%' EQU 'ca7df2e3-5ea0-47b8-9ac1-b1be4d8edd69' if /i %EditionID% NEQ CloudEdition exit /b
 if /i '%app%' EQU 'd30136fc-cb4b-416e-a23d-87207abc44a9' if /i %EditionID% NEQ CloudEditionN exit /b
 if /i '%app%' EQU '0df4f814-3f57-4b8b-9a9d-fddadcd69fac' if /i %EditionID% NEQ CloudE exit /b
@@ -1843,7 +1843,6 @@ goto :eof
 
 :CreateOEM
 cls
-set "_oem=!_work!"
 if exist "!_oem!\$OEM$\" (
 echo.&echo %line3%&echo.
 echo $OEM$ Folder already exist...
