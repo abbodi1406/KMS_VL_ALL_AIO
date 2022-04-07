@@ -1,6 +1,6 @@
 <!-- : Begin batch script
 @setlocal DisableDelayedExpansion
-@set uivr=v45
+@set uivr=v46
 @echo off
 :: ### Configuration Options ###
 
@@ -50,8 +50,8 @@ set KMS_HWID=0x3A1C049600B60076
 :: change KMS TCP port
 set KMS_Port=1688
 
-:: change to 1 to use VBScript instead wmic.exe to access WMI
-:: this option is automatically enabled for Windows 11 build 22483 and later
+:: change to 1 to use VBScript to access WMI
+:: automatically enabled if wmic.exe is not available for Windows 11 build 22483 and later
 set WMI_VBS=0
 
 :: Notice for advanced users on Windows 64-bit (x64 / ARM64):
@@ -71,18 +71,6 @@ set _uIP=0.0.0.0
 
 set "_Null=1>nul 2>nul"
 
-set "_cmdf=%~f0"
-if exist "%SystemRoot%\Sysnative\cmd.exe" (
-setlocal EnableDelayedExpansion
-start %SystemRoot%\Sysnative\cmd.exe /c ""!_cmdf!" %*"
-exit /b
-)
-if exist "%SystemRoot%\SysArm32\cmd.exe" if /i %PROCESSOR_ARCHITECTURE%==AMD64 (
-setlocal EnableDelayedExpansion
-start %SystemRoot%\SysArm32\cmd.exe /c ""!_cmdf!" %*"
-exit /b
-)
-
 set _args=
 set _elev=
 set _batf=
@@ -95,6 +83,8 @@ if not defined _args goto :NoProgArgs
 set _args=%_args:"=%
 for %%A in (%_args%) do (
 if /i "%%A"=="-elevated" (set _elev=1
+) else if /i "%%A"=="-wow" (set _rel1=1
+) else if /i "%%A"=="-arm" (set _rel2=1
 ) else if /i "%%A"=="/d" (set _Debug=1
 ) else if /i "%%A"=="/u" (set Unattend=1
 ) else if /i "%%A"=="/s" (set Silent=1
@@ -111,6 +101,17 @@ if /i "%%A"=="-elevated" (set _elev=1
 )
 
 :NoProgArgs
+set "_cmdf=%~f0"
+if exist "%SystemRoot%\Sysnative\cmd.exe" if not defined _rel1 (
+setlocal EnableDelayedExpansion
+start %SystemRoot%\Sysnative\cmd.exe /c ""!_cmdf!" -wow %*"
+exit /b
+)
+if exist "%SystemRoot%\SysArm32\cmd.exe" if /i %PROCESSOR_ARCHITECTURE%==AMD64 if not defined _rel2 (
+setlocal EnableDelayedExpansion
+start %SystemRoot%\SysArm32\cmd.exe /c ""!_cmdf!" -arm %*"
+exit /b
+)
 if %External% EQU 1 (if "%KMS_IP%"=="%_uIP%" (set fAUR=0&set External=0) else (set fAUR=0))
 if %uManual% EQU 1 (set fAUR=0&set External=0&set uAutoRenewal=0)
 if %uAutoRenewal% EQU 1 (set fAUR=1&set External=0&set uManual=0)
@@ -121,8 +122,11 @@ set _run=nul
 if %Logger% EQU 1 set _run="%~dpn0_Silent.log"
 
 set "SysPath=%SystemRoot%\System32"
-if exist "%SystemRoot%\Sysnative\reg.exe" (set "SysPath=%SystemRoot%\Sysnative")
-set "Path=%SysPath%;%SystemRoot%;%SysPath%\Wbem;%SystemRoot%\System32\WindowsPowerShell\v1.0\"
+set "Path=%SystemRoot%\System32;%SystemRoot%\System32\Wbem;%SystemRoot%\System32\WindowsPowerShell\v1.0\"
+if exist "%SystemRoot%\Sysnative\reg.exe" (
+set "SysPath=%SystemRoot%\Sysnative"
+set "Path=%SystemRoot%\Sysnative;%SystemRoot%\Sysnative\Wbem;%SystemRoot%\Sysnative\WindowsPowerShell\v1.0\;%Path%"
+)
 set "_err===== ERROR ===="
 set "_psc=powershell -nop -c"
 set "_buf={$W=$Host.UI.RawUI.WindowSize;$B=$Host.UI.RawUI.BufferSize;$W.Height=31;$B.Height=300;$Host.UI.RawUI.WindowSize=$W;$Host.UI.RawUI.BufferSize=$B;}"
@@ -137,12 +141,17 @@ if /i "%PROCESSOR_ARCHITECTURE%"=="x86" if "%PROCESSOR_ARCHITEW6432%"=="" set "x
 if /i "%PROCESSOR_ARCHITEW6432%"=="amd64" set "xBit=x64"&set "xOS=x64"&set "_orig=%o_x64%"
 if /i "%PROCESSOR_ARCHITEW6432%"=="arm64" set "xBit=x86"&set "xOS=A64"&set "_orig=%o_arm%"
 
-if not exist "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" goto :E_PS
+set _cwmi=0
+for %%# in (wmic.exe) do @if not "%%~$PATH:#"=="" (
+wmic path Win32_ComputerSystem get CreationClassName /value 2>nul | find /i "ComputerSystem" 1>nul && set _cwmi=1
+)
+set _pwsh=1
+for %%# in (powershell.exe) do @if "%%~$PATH:#"=="" set _pwsh=0
+if not exist "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" set _pwsh=0
+if %_pwsh% equ 0 goto :E_PS
 
-set pwsh32=0
-if %xOS%==A64 %_psc% $env:PROCESSOR_ARCHITECTURE 2>nul | find /i "x86" 1>nul && set pwsh32=1
 set _dllPath=%SystemRoot%\System32
-if %pwsh32% EQU 1 set _dllPath=%SystemRoot%\Sysnative
+if %xOS%==A64 %_psc% $env:PROCESSOR_ARCHITECTURE 2>nul | find /i "x86" 1>nul && set _dllPath=%SystemRoot%\Sysnative
 set _dllNum=1
 if %xOS%==x64 set _dllNum=2
 if %xOS%==A64 set _dllNum=3
@@ -169,6 +178,7 @@ set _PSarg=%_PSarg:'=''%
 )
 
 :Passed
+if not exist "%SystemRoot%\Temp\" mkdir "%SystemRoot%\Temp" 1>nul 2>nul
 set "_batf=%~f0"
 set "_batp=%_batf:'=''%"
 set "_Local=%LocalAppData%"
@@ -194,7 +204,7 @@ set "_mO14m=Detected Office 2010 MSI Retail is not supported by KMS_VL_ALL"
 set "_mO15m=Detected Office 2013 MSI Retail is not supported by KMS_VL_ALL"
 set "_mO16m=Detected Office 2016 MSI Retail is not supported by KMS_VL_ALL"
 set "_mOuwp=Detected Office 365/2016 UWP is not supported by KMS_VL_ALL"
-set DO16Ids=ProPlus,ProjectPro,VisioPro,Standard,ProjectStd,VisioStd,Access,SkypeforBusiness,Excel,Outlook,PowerPoint,Publisher,Word
+set DO16Ids=ProPlus,Standard,Access,SkypeforBusiness,Excel,Outlook,PowerPoint,Publisher,Word
 set LV16Ids=Mondo,ProPlus,ProjectPro,VisioPro,Standard,ProjectStd,VisioStd,Access,SkypeforBusiness,OneNote,Excel,Outlook,PowerPoint,Publisher,Word
 set LR16Ids=%LV16Ids%,Professional,HomeBusiness,HomeStudent,O365Business,O365SmallBusPrem,O365HomePrem,O365EduCloud
 set "ESUEditions=Enterprise,EnterpriseE,EnterpriseN,Professional,ProfessionalE,ProfessionalN,Ultimate,UltimateE,UltimateN"
@@ -208,7 +218,7 @@ set "_csm=cscript.exe //NoLogo //Job:WmiMethod "%~nx0?.wsf""
 set "_csp=cscript.exe //NoLogo //Job:WmiPKey "%~nx0?.wsf""
 set "_csx=cscript.exe //NoLogo //Job:XPDT "%~nx0?.wsf""
 set "_csd=cscript.exe //NoLogo //Job:MPS "%~nx0?.wsf""
-if %winbuild% GEQ 22483 set WMI_VBS=1
+if %_cwmi% EQU 0 set WMI_VBS=1
 if %WMI_VBS% EQU 0 (
 set "_zz1=wmic path"
 set "_zz2=where"
@@ -689,7 +699,7 @@ set W1nd0ws=1
 set WinPerm=0
 set WinVL=0
 set Off1ce=0
-set RunR2V=0
+set RanR2V=0
 set aC2R21=0
 set aC2R19=0
 set aC2R16=0
@@ -752,7 +762,7 @@ if %W1nd0ws% EQU 1 if %ActWindows% NEQ 0 for /f "tokens=2 delims==" %%G in ('%_q
 :: if %ESU_EDT% EQU 1 if %ActWindows% NEQ 0 for /f "tokens=2 delims==" %%G in ('%_qr%') do (set app=%%G&call :esuchk)
 if %W1nd0ws% EQU 1 if %ActWindows% EQU 0 (echo.&echo Windows activation is OFF...)
 set "_qr=%_zz7% %spp% %_zz2% %_zz5%ApplicationID='%_oApp%' and Description like '%%KMSCLIENT%%' %_zz6% %_zz3% ID %_zz8%"
-if %Off1ce% EQU 1 if %ActOffice% NEQ 0 for /f "tokens=2 delims==" %%G in ('%_qr%') do (set app=%%G&call :sppchkoff)
+if %Off1ce% EQU 1 if %ActOffice% NEQ 0 for /f "tokens=2 delims==" %%G in ('%_qr%') do (set app=%%G&call :sppchkoff 1)
 if %_AUR% EQU 0 (
 call :cREG %_Nul3%
 ) else (
@@ -769,20 +779,27 @@ if not %xOS%==x86 dir /b "%ProgramW6432%\WindowsApps\Microsoft.Office.Desktop*" 
 )
 rem nothing installed
 if %loc_off21% EQU 0 if %loc_off19% EQU 0 if %loc_off16% EQU 0 if %loc_off15% EQU 0 (
-if %OffUWP% EQU 0 (echo.&echo No Installed Office 2013-2021 Product Detected...) else (echo.&echo %_mOuwp%)
-exit /b
+if %winbuild% GEQ 9200 (
+  if %OffUWP% EQU 0 (echo.&echo No Installed Office 2013-2021 Product Detected...) else (echo.&echo %_mOuwp%)
+  exit /b
+  )
+if %winbuild% LSS 9200 (if %loc_off14% EQU 0 (echo.&echo No Installed Office %aword% Product Detected...&exit /b))
 )
+set sub_O365=0
+set sub_proj=0
+set sub_vis=0
 set Off1ce=1
 set _sC2R=sppoff
 set _fC2R=ReturnSPP
-set vol_off15=0&set vol_off16=0&set vol_off19=0&set vol_off21=0
+set vol_off14=0&set vol_off15=0&set vol_off16=0&set vol_off19=0&set vol_off21=0
 set "_qr=%_zz1% %spp% %_zz2% %_zz5%Description like '%%KMSCLIENT%%' AND NOT Name like '%%MondoR_KMS_Automation%%' %_zz6% %_zz3% Name %_zz4%"
 %_qr% > "!_temp!\sppchk.txt" 2>&1
 find /i "Office 21" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off21=1)
 find /i "Office 19" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off19=1)
 find /i "Office 16" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off16=1)
 find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off15=1)
-for %%A in (15,16,19,21) do if !loc_off%%A! EQU 0 set vol_off%%A=0
+if %winbuild% LSS 9200 find /i "Office 14" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off14=1)
+for %%A in (14,15,16,19,21) do if !loc_off%%A! EQU 0 set vol_off%%A=0
 set "_qr=%_zz1% %spp% %_zz2% "ApplicationID='%_oApp%' AND LicenseFamily like 'Office16O365%%'" %_zz3% LicenseFamily %_zz4%"
 if %vol_off16% EQU 1 find /i "Office16MondoVL_KMS_Client" "!_temp!\sppchk.txt" %_Nul1% && (
 %_qr% %_Nul2% | find /i "O365" %_Nul1% || (set vol_off16=0)
@@ -791,53 +808,129 @@ set "_qr=%_zz1% %spp% %_zz2% "ApplicationID='%_oApp%' AND LicenseFamily like 'Of
 if %vol_off15% EQU 1 find /i "OfficeMondoVL_KMS_Client" "!_temp!\sppchk.txt" %_Nul1% && (
 %_qr% %_Nul2% | find /i "O365" %_Nul1% || (set vol_off15=0)
 )
-set ret_off15=0&set ret_off16=0&set ret_off19=0&set ret_off21=0
+set ret_off14=0&set ret_off15=0&set ret_off16=0&set ret_off19=0&set ret_off21=0
 set "_qr=%_zz1% %spp% %_zz2% %_zz5%ApplicationID='%_oApp%' AND NOT Name like '%%O365%%' %_zz6% %_zz3% Name %_zz4%"
 %_qr% > "!_temp!\sppchk.txt" 2>&1
 find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 21" %_Nul1% && (set ret_off21=1)
 find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 19" %_Nul1% && (set ret_off19=1)
 find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 16" %_Nul1% && (set ret_off16=1)
 find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 15" %_Nul1% && (set ret_off15=1)
-if %ret_off21% EQU 1 if %_O16MSI% EQU 0 set vol_off21=0
-if %ret_off19% EQU 1 if %_O16MSI% EQU 0 set vol_off19=0
-if %ret_off16% EQU 1 if %_O16MSI% EQU 0 set vol_off16=0
-if %ret_off15% EQU 1 if %_O15MSI% EQU 0 set vol_off15=0
-set run_off16=0
-if defined _C16R if %loc_off16% EQU 1 if %vol_off16% EQU 0 if %ret_off16% EQU 1 (
+set "_qr=%_zz1% %spp% %_zz2% %_zz5%ApplicationID='%_oA14%'%_zz6% %_zz3% Description %_zz4%"
+if %winbuild% LSS 9200 if %vol_off14% EQU 0 %_qr% %_Nul2% | findstr /i channel %_Nul1% && (set ret_off14=1)
+set run_off21=0&set prr_off21=0&set prv_off21=0
+if %loc_off21% EQU 1 if %ret_off21% EQU 1 if %_O16MSI% EQU 0 if %vol_off21% EQU 0 set run_off21=1
+if %loc_off21% EQU 1 if %ret_off21% EQU 1 if %_O16MSI% EQU 0 if %vol_off21% EQU 1 (
+for %%a in (%DO16Ids%) do find /i "Office21%%a2021R" "!_temp!\sppchk.txt" %_Nul1% && (
+  call set /a prr_off21+=1
+  find /i "Office21%%a2021VL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off21+=1
+  )
+for %%a in (Professional) do find /i "Office21%%a2021R" "!_temp!\sppchk.txt" %_Nul1% && (
+  call set /a prr_off21+=1
+  find /i "Office21ProPlus2021VL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off21+=1
+  )
+for %%a in (HomeBusiness,HomeStudent) do find /i "Office21%%a2021R" "!_temp!\sppchk.txt" %_Nul1% && (
+  call set /a prr_off21+=1
+  find /i "Office21Standard2021VL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off21+=1
+  )
+if %sub_proj% EQU 0 for %%a in (ProjectPro,ProjectStd) do find /i "Office21%%a2021R" "!_temp!\sppchk.txt" %_Nul1% && (
+  call set /a prr_off21+=1
+  find /i "Office21%%a2021VL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off21+=1
+  )
+if %sub_vis% EQU 0 for %%a in (VisioPro,VisioStd) do find /i "Office21%%a2021R" "!_temp!\sppchk.txt" %_Nul1% && (
+  call set /a prr_off21+=1
+  find /i "Office21%%a2021VL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off21+=1
+  )
+)
+if %loc_off21% EQU 1 if %ret_off21% EQU 1 if %_O16MSI% EQU 0 if %vol_off21% EQU 1 if %prv_off21% LSS %prr_off21% (set vol_off21=0&set run_off21=1)
+set run_off19=0&set prr_off19=0&set prv_off19=0
+if %loc_off19% EQU 1 if %ret_off19% EQU 1 if %_O16MSI% EQU 0 if %vol_off19% EQU 0 set run_off19=1
+if %loc_off19% EQU 1 if %ret_off19% EQU 1 if %_O16MSI% EQU 0 if %vol_off19% EQU 1 (
+for %%a in (%DO16Ids%) do find /i "Office19%%a2019R" "!_temp!\sppchk.txt" %_Nul1% && (
+  call set /a prr_off19+=1
+  find /i "Office19%%a2019VL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off19+=1
+  )
+for %%a in (Professional) do find /i "Office19%%a2019R" "!_temp!\sppchk.txt" %_Nul1% && (
+  call set /a prr_off19+=1
+  find /i "Office19ProPlus2019VL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off19+=1
+  )
+for %%a in (HomeBusiness,HomeStudent) do find /i "Office19%%a2019R" "!_temp!\sppchk.txt" %_Nul1% && (
+  call set /a prr_off19+=1
+  find /i "Office19Standard2019VL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off19+=1
+  )
+if %sub_proj% EQU 0 for %%a in (ProjectPro,ProjectStd) do find /i "Office19%%a2019R" "!_temp!\sppchk.txt" %_Nul1% && (
+  call set /a prr_off19+=1
+  find /i "Office19%%a2019VL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off19+=1
+  )
+if %sub_vis% EQU 0 for %%a in (VisioPro,VisioStd) do find /i "Office19%%a2019R" "!_temp!\sppchk.txt" %_Nul1% && (
+  call set /a prr_off19+=1
+  find /i "Office19%%a2019VL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off19+=1
+  )
+)
+if %loc_off19% EQU 1 if %ret_off19% EQU 1 if %_O16MSI% EQU 0 if %vol_off19% EQU 1 if %prv_off19% LSS %prr_off19% (set vol_off19=0&set run_off19=1)
+set run_off16=0&set prr_off16=0&set prv_off16=0
+if %loc_off16% EQU 1 if %ret_off16% EQU 1 if %_O16MSI% EQU 0 if defined _C16R (
 for %%a in (%DO16Ids%) do find /i "Office16%%aR" "!_temp!\sppchk.txt" %_Nul1% && (
-  if %vol_off21% EQU 1 find /i "Office21%%a2021VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
-  if %vol_off19% EQU 1 find /i "Office19%%a2019VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
+  call set /a prr_off16+=1
+  if %vol_off16% EQU 1 if %vol_off21% EQU 0 if %vol_off19% EQU 0 find /i "Office16%%aVL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off16+=1
+  if %vol_off16% EQU 0 if %vol_off21% EQU 1 find /i "Office21%%a2021VL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off16+=1
+  if %vol_off16% EQU 0 if %vol_off19% EQU 1 find /i "Office19%%a2019VL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off16+=1
   )
 for %%a in (Professional) do find /i "Office16%%aR" "!_temp!\sppchk.txt" %_Nul1% && (
-  if %vol_off21% EQU 1 find /i "Office21ProPlus2021VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
-  if %vol_off19% EQU 1 find /i "Office19ProPlus2019VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
+  call set /a prr_off16+=1
+  if %vol_off16% EQU 1 if %vol_off21% EQU 0 if %vol_off19% EQU 0 find /i "Office16ProPlusVL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off16+=1
+  if %vol_off16% EQU 0 if %vol_off21% EQU 1 find /i "Office21ProPlus2021VL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off16+=1
+  if %vol_off16% EQU 0 if %vol_off19% EQU 1 find /i "Office19ProPlus2019VL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off16+=1
   )
 for %%a in (HomeBusiness,HomeStudent) do find /i "Office16%%aR" "!_temp!\sppchk.txt" %_Nul1% && (
-  if %vol_off21% EQU 1 find /i "Office21Standard2021VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
-  if %vol_off19% EQU 1 find /i "Office19Standard2019VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
+  call set /a prr_off16+=1
+  if %vol_off16% EQU 1 if %vol_off21% EQU 0 if %vol_off19% EQU 0 find /i "Office16StandardVL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off16+=1
+  if %vol_off16% EQU 0 if %vol_off21% EQU 1 find /i "Office21Standard2021VL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off16+=1
+  if %vol_off16% EQU 0 if %vol_off19% EQU 1 find /i "Office19Standard2019VL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off16+=1
+  )
+if %sub_proj% EQU 0 for %%a in (ProjectPro,ProjectStd) do find /i "Office16%%aR" "!_temp!\sppchk.txt" %_Nul1% && (
+  call set /a prr_off16+=1
+  if %vol_off16% EQU 1 if %vol_off21% EQU 0 if %vol_off19% EQU 0 find /i "Office16%%aVL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off16+=1
+  if %vol_off16% EQU 0 if %vol_off21% EQU 1 find /i "Office21%%a2021VL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off16+=1
+  if %vol_off16% EQU 0 if %vol_off19% EQU 1 find /i "Office19%%a2019VL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off16+=1
+  )
+if %sub_vis% EQU 0 for %%a in (VisioPro,VisioStd) do find /i "Office16%%aR" "!_temp!\sppchk.txt" %_Nul1% && (
+  call set /a prr_off16+=1
+  if %vol_off16% EQU 1 if %vol_off21% EQU 0 if %vol_off19% EQU 0 find /i "Office16%%aVL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off16+=1
+  if %vol_off16% EQU 0 if %vol_off21% EQU 1 find /i "Office21%%a2021VL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off16+=1
+  if %vol_off16% EQU 0 if %vol_off19% EQU 1 find /i "Office19%%a2019VL" "!_temp!\sppchk.txt" %_Nul1% && call set /a prv_off16+=1
   )
 )
+if %loc_off16% EQU 1 if %ret_off16% EQU 1 if %_O16MSI% EQU 0 if defined _C16R if %prv_off16% LSS %prr_off16% (set vol_off16=0&set run_off16=1)
 set "_qr=%_zz1% %spp% %_zz2% %_zz5%ApplicationID='%_oApp%' AND LicenseFamily like 'Office16O365%%' %_zz6% %_zz3% LicenseFamily %_zz4%"
-if defined _C16R if %loc_off16% EQU 1 if %run_off16% EQU 0 %_qr% %_Nul2% | find /i "O365" %_Nul1% && (
+if %loc_off16% EQU 1 if %run_off16% EQU 0 if %sub_O365% EQU 0 if defined _C16R %_qr% %_Nul2% | find /i "O365" %_Nul1% && (
 find /i "Office16MondoVL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
 )
+set run_off15=0
+if %loc_off15% EQU 1 if %ret_off15% EQU 1 if %_O15MSI% EQU 0 (
+set vol_off15=0
+if defined _C15R set run_off15=1
+)
 set vol_offgl=1
-if %vol_off21% EQU 0 if %vol_off19% EQU 0 if %vol_off16% EQU 0 if %vol_off15% EQU 0 set vol_offgl=0
+if %vol_off21% EQU 0 if %vol_off19% EQU 0 if %vol_off16% EQU 0 if %vol_off15% EQU 0 (
+if %winbuild% GEQ 9200 set vol_offgl=0
+if %winbuild% LSS 9200 if %vol_off14% EQU 0 set vol_offgl=0
+)
 rem mixed Volume + Retail
-if %loc_off21% EQU 1 if %vol_off21% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
-if %loc_off19% EQU 1 if %vol_off19% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
-if defined _C16R if %loc_off16% EQU 1 if %vol_off16% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 if %run_off16% EQU 1 goto :C2RR2V
-if defined _C15R if %loc_off15% EQU 1 if %vol_off15% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
-if %loc_off16% EQU 0 if %ret_off16% EQU 1 if %_O16MSI% EQU 0 if %OffUWP% EQU 1 (echo.&echo %_mOuwp%)
+if %run_off21% EQU 1 if %AutoR2V% EQU 1 if %RanR2V% EQU 0 goto :C2RR2V
+if %run_off19% EQU 1 if %AutoR2V% EQU 1 if %RanR2V% EQU 0 goto :C2RR2V
+if %run_off16% EQU 1 if %AutoR2V% EQU 1 if %RanR2V% EQU 0 goto :C2RR2V
+if %run_off15% EQU 1 if %AutoR2V% EQU 1 if %RanR2V% EQU 0 goto :C2RR2V
 rem all supported Volume + message for unsupported
+if %loc_off16% EQU 0 if %ret_off16% EQU 1 if %_O16MSI% EQU 0 if %OffUWP% EQU 1 (echo.&echo %_mOuwp%)
 if %vol_offgl% EQU 1 (
 if %ret_off16% EQU 1 if %_O16MSI% EQU 1 (echo.&echo %_mO16m%)
 if %ret_off15% EQU 1 if %_O15MSI% EQU 1 (echo.&echo %_mO15m%)
+if %winbuild% LSS 9200 if %loc_off14% EQU 1 if %vol_off14% EQU 0 (if defined _C14R (echo.&echo %_mO14c%) else if %_O14MSI% EQU 1 (if %ret_off14% EQU 1 echo.&echo %_mO14m%))
 exit /b
 )
 set Off1ce=0
 rem Retail C2R
-if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
+if %AutoR2V% EQU 1 if %RanR2V% EQU 0 goto :C2RR2V
 :ReturnSPP
 rem Retail MSI/C2R or failed C2R-R2V
 if %loc_off21% EQU 1 if %vol_off21% EQU 0 (
@@ -847,21 +940,25 @@ if %loc_off19% EQU 1 if %vol_off19% EQU 0 (
 if %aC2R19% EQU 1 (echo.&echo %_mO19a%) else (echo.&echo %_mO19c%)
 )
 if %loc_off16% EQU 1 if %vol_off16% EQU 0 (
-if defined _C16R (if %aC2R16% EQU 1 (echo.&echo %_mO16a%) else (echo.&echo %_mO16c%)) else if %_O16MSI% EQU 1 (if %ret_off16% EQU 1 echo.&echo %_mO16m%)
+if defined _C16R (if %aC2R16% EQU 1 (echo.&echo %_mO16a%) else (if %sub_O365% EQU 0 echo.&echo %_mO16c%)) else if %_O16MSI% EQU 1 (if %ret_off16% EQU 1 echo.&echo %_mO16m%)
 )
 if %loc_off15% EQU 1 if %vol_off15% EQU 0 (
 if defined _C15R (if %aC2R15% EQU 1 (echo.&echo %_mO15a%) else (echo.&echo %_mO15c%)) else if %_O15MSI% EQU 1 (if %ret_off15% EQU 1 echo.&echo %_mO15m%)
+)
+if %winbuild% LSS 9200 if %loc_off14% EQU 1 if %vol_off14% EQU 0 (
+if defined _C14R (echo.&echo %_mO14c%) else if %_O14MSI% EQU 1 (if %ret_off14% EQU 1 echo.&echo %_mO14m%)
 )
 exit /b
 
 :sppchkoff
 set "_qr=%_zz1% %spp% %_zz2% %_zz5%ID='%app%'%_zz6% %_zz3% Name %_zz4%"
 %_qr% > "!_temp!\sppchk.txt"
+if %winbuild% LSS 9200 find /i "Office 14" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off14% EQU 0 exit /b)
 find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off15% EQU 0 exit /b)
 find /i "Office 16" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off16% EQU 0 exit /b)
 find /i "Office 19" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off19% EQU 0 exit /b)
 find /i "Office 21" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off21% EQU 0 exit /b)
-set _officespp=1
+if %1 EQU 1 (set _officespp=1) else (set _officespp=0)
 set "_qr=%_zz1% %spp% %_zz2% %_zz5%PartialProductKey is not NULL%_zz6% %_zz3% ID %_zz4%"
 %_qr% %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate&exit /b)
 set "_qr=%_zz7% %spp% %_zz2% %_zz5%ID='%app%'%_zz6% %_zz3% Name %_zz8%"
@@ -988,7 +1085,7 @@ exit /b
 set spp=OfficeSoftwareProtectionProduct
 set sps=OfficeSoftwareProtectionService
 set Off1ce=0
-set RunR2V=0
+set RanR2V=0
 set aC2R21=0
 set aC2R19=0
 set aC2R16=0
@@ -1002,8 +1099,8 @@ sc start osppsvc %_Nul3%
 if !errorlevel! EQU 1053 set err_offsvc=1
 )
 if %err_offsvc% EQU 1 (echo.&echo Error: osppsvc service is not running...&exit /b)
-if %winbuild% GEQ 9200 call :win8off
-if %winbuild% LSS 9200 call :win7off
+if %winbuild% GEQ 9200 call :oppoff
+if %winbuild% LSS 9200 call :sppoff
 if %Off1ce% EQU 0 exit /b
 if %_AUR% EQU 0 (
 reg delete "HKLM\%OPPk%\%_oA14%" /f %_Null%
@@ -1019,7 +1116,7 @@ for /f "tokens=2 delims==" %%A in ('%_qr% %_Nul6%') do set slsv=%%A
 reg add "HKLM\%OPPk%" /f /v KeyManagementServiceName /t REG_SZ /d "%KMS_IP%" %_Nul3%
 reg add "HKLM\%OPPk%" /f /v KeyManagementServicePort /t REG_SZ /d "%KMS_Port%" %_Nul3%
 set "_qr=%_zz7% %spp% %_zz2% %_zz5%Description like '%%KMSCLIENT%%' %_zz6% %_zz3% ID %_zz8%"
-for /f "tokens=2 delims==" %%G in ('%_qr%') do (set app=%%G&call :osppchk)
+for /f "tokens=2 delims==" %%G in ('%_qr%') do (set app=%%G&call :sppchkoff 2)
 if %_AUR% EQU 0 (
 call :cREG %_Nul3%
 ) else (
@@ -1028,7 +1125,7 @@ reg delete "HKLM\%OPPk%" /f /v DisableKeyManagementServiceHostCaching %_Null%
 )
 exit /b
 
-:win8off
+:oppoff
 set "_qr=%_zz1% %spp% %_zz3% Description %_zz4%"
 %_qr% %_Nul2% | findstr /i KMSCLIENT %_Nul1% && (
 set Off1ce=1
@@ -1037,113 +1134,6 @@ exit /b
 set ret_off14=0
 %_qr% %_Nul2% | findstr /i channel %_Nul1% && (set ret_off14=1)
 if defined _C14R (echo.&echo %_mO14c%) else if %_O14MSI% EQU 1 (if %ret_off14% EQU 1 echo.&echo %_mO14m%)
-exit /b
-
-:win7off
-rem nothing installed
-if %loc_off21% EQU 0 if %loc_off19% EQU 0 if %loc_off16% EQU 0 if %loc_off15% EQU 0 if %loc_off14% EQU 0 (echo.&echo No Installed Office %aword% Product Detected...&exit /b)
-set Off1ce=1
-set _sC2R=win7off
-set _fC2R=ReturnOSPP
-set vol_off14=0&set vol_off15=0&set vol_off16=0&set vol_off19=0&set vol_off21=0
-set "_qr=%_zz1% %spp% %_zz2% %_zz5%Description like '%%KMSCLIENT%%' AND NOT Name like '%%MondoR_KMS_Automation%%' %_zz6% %_zz3% Name %_zz4%"
-%_qr% > "!_temp!\sppchk.txt" 2>&1
-find /i "Office 21" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off21=1)
-find /i "Office 19" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off19=1)
-find /i "Office 16" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off16=1)
-find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off15=1)
-find /i "Office 14" "!_temp!\sppchk.txt" %_Nul1% && (set vol_off14=1)
-for %%A in (14,15,16,19,21) do if !loc_off%%A! EQU 0 set vol_off%%A=0
-set "_qr=%_zz1% %spp% %_zz2% "ApplicationID='%_oApp%' AND LicenseFamily like 'Office16O365%%'" %_zz3% LicenseFamily %_zz4%"
-if %vol_off16% EQU 1 find /i "Office16MondoVL_KMS_Client" "!_temp!\sppchk.txt" %_Nul1% && (
-%_qr% %_Nul2% | find /i "O365" %_Nul1% || (set vol_off16=0)
-)
-set "_qr=%_zz1% %spp% %_zz2% "ApplicationID='%_oApp%' AND LicenseFamily like 'OfficeO365%%'" %_zz3% LicenseFamily %_zz4%"
-if %vol_off15% EQU 1 find /i "OfficeMondoVL_KMS_Client" "!_temp!\sppchk.txt" %_Nul1% && (
-%_qr% %_Nul2% | find /i "O365" %_Nul1% || (set vol_off15=0)
-)
-set ret_off14=0&set ret_off15=0&set ret_off16=0&set ret_off19=0&set ret_off21=0
-set "_qr=%_zz1% %spp% %_zz2% %_zz5%ApplicationID='%_oApp%' AND NOT Name like '%%O365%%' %_zz6% %_zz3% Name %_zz4%"
-%_qr% > "!_temp!\sppchk.txt" 2>&1
-find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 21" %_Nul1% && (set ret_off21=1)
-find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 19" %_Nul1% && (set ret_off19=1)
-find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 16" %_Nul1% && (set ret_off16=1)
-find /i "R_Retail" "!_temp!\sppchk.txt" %_Nul2% | find /i "Office 15" %_Nul1% && (set ret_off15=1)
-if %ret_off21% EQU 1 if %_O16MSI% EQU 0 set vol_off21=0
-if %ret_off19% EQU 1 if %_O16MSI% EQU 0 set vol_off19=0
-if %ret_off16% EQU 1 if %_O16MSI% EQU 0 set vol_off16=0
-if %ret_off15% EQU 1 if %_O15MSI% EQU 0 set vol_off15=0
-set "_qr=%_zz1% %spp% %_zz2% %_zz5%ApplicationID='%_oA14%'%_zz6% %_zz3% Description %_zz4%"
-if %vol_off14% EQU 0 %_qr% %_Nul2% | findstr /i channel %_Nul1% && (set ret_off14=1)
-set run_off16=0
-if defined _C16R if %loc_off16% EQU 1 if %vol_off16% EQU 0 if %ret_off16% EQU 1 (
-for %%a in (%DO16Ids%) do find /i "Office16%%aR" "!_temp!\sppchk.txt" %_Nul1% && (
-  if %vol_off21% EQU 1 find /i "Office21%%a2021VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
-  if %vol_off19% EQU 1 find /i "Office19%%a2019VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
-  )
-for %%a in (Professional) do find /i "Office16%%aR" "!_temp!\sppchk.txt" %_Nul1% && (
-  if %vol_off21% EQU 1 find /i "Office21ProPlus2021VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
-  if %vol_off19% EQU 1 find /i "Office19ProPlus2019VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
-  )
-for %%a in (HomeBusiness,HomeStudent) do find /i "Office16%%aR" "!_temp!\sppchk.txt" %_Nul1% && (
-  if %vol_off21% EQU 1 find /i "Office21Standard2021VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
-  if %vol_off19% EQU 1 find /i "Office19Standard2019VL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
-  )
-)
-set "_qr=%_zz1% %spp% %_zz2% %_zz5%ApplicationID='%_oApp%' AND LicenseFamily like 'Office16O365%%' %_zz6% %_zz3% LicenseFamily %_zz4%"
-if defined _C16R if %loc_off16% EQU 1 if %run_off16% EQU 0 %_qr% %_Nul2% | find /i "O365" %_Nul1% && (
-find /i "Office16MondoVL" "!_temp!\sppchk.txt" %_Nul1% || set run_off16=1
-)
-set vol_offgl=1
-if %vol_off21% EQU 0 if %vol_off19% EQU 0 if %vol_off16% EQU 0 if %vol_off15% EQU 0 if %vol_off14% EQU 0 set vol_offgl=0
-rem mixed Volume + Retail
-if %loc_off21% EQU 1 if %vol_off21% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
-if %loc_off19% EQU 1 if %vol_off19% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
-if defined _C16R if %loc_off16% EQU 1 if %vol_off16% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 if %run_off16% EQU 1 goto :C2RR2V
-if defined _C15R if %loc_off15% EQU 1 if %vol_off15% EQU 0 if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
-rem all supported Volume + message for unsupported
-if %vol_offgl% EQU 1 (
-if %ret_off16% EQU 1 if %_O16MSI% EQU 1 (echo.&echo %_mO16m%)
-if %ret_off15% EQU 1 if %_O15MSI% EQU 1 (echo.&echo %_mO15m%)
-if %loc_off14% EQU 1 if %vol_off14% EQU 0 (if defined _C14R (echo.&echo %_mO14c%) else if %_O14MSI% EQU 1 (if %ret_off14% EQU 1 echo.&echo %_mO14m%))
-exit /b
-)
-set Off1ce=0
-rem Retail C2R
-if %RunR2V% EQU 0 if %AutoR2V% EQU 1 goto :C2RR2V
-:ReturnOSPP
-rem Retail MSI/C2R or failed C2R-R2V
-if %loc_off21% EQU 1 if %vol_off21% EQU 0 (
-if %aC2R21% EQU 1 (echo.&echo %_mO21a%) else (echo.&echo %_mO21c%)
-)
-if %loc_off19% EQU 1 if %vol_off19% EQU 0 (
-if %aC2R19% EQU 1 (echo.&echo %_mO19a%) else (echo.&echo %_mO19c%)
-)
-if %loc_off16% EQU 1 if %vol_off16% EQU 0 (
-if defined _C16R (if %aC2R16% EQU 1 (echo.&echo %_mO16a%) else (echo.&echo %_mO16c%)) else if %_O16MSI% EQU 1 (if %ret_off16% EQU 1 echo.&echo %_mO16m%)
-)
-if %loc_off15% EQU 1 if %vol_off15% EQU 0 (
-if defined _C15R (if %aC2R15% EQU 1 (echo.&echo %_mO15a%) else (echo.&echo %_mO15c%)) else if %_O15MSI% EQU 1 (if %ret_off15% EQU 1 echo.&echo %_mO15m%)
-)
-if %loc_off14% EQU 1 if %vol_off14% EQU 0 (
-if defined _C14R (echo.&echo %_mO14c%) else if %_O14MSI% EQU 1 (if %ret_off14% EQU 1 echo.&echo %_mO14m%)
-)
-exit /b
-
-:osppchk
-set "_qr=%_zz1% %spp% %_zz2% %_zz5%ID='%app%'%_zz6% %_zz3% Name %_zz4%"
-%_qr% > "!_temp!\sppchk.txt"
-find /i "Office 14" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off14% EQU 0 exit /b)
-find /i "Office 15" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off15% EQU 0 exit /b)
-find /i "Office 16" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off16% EQU 0 exit /b)
-find /i "Office 19" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off19% EQU 0 exit /b)
-find /i "Office 21" "!_temp!\sppchk.txt" %_Nul1% && (if %loc_off21% EQU 0 exit /b)
-set _officespp=0
-set "_qr=%_zz1% %spp% %_zz2% %_zz5%PartialProductKey is not NULL%_zz6% %_zz3% ID %_zz4%"
-%_qr% %_Nul2% | findstr /i "%app%" %_Nul1% && (echo.&call :activate&exit /b)
-set "_qr=%_zz7% %spp% %_zz2% %_zz5%ID='%app%'%_zz6% %_zz3% Name %_zz8%"
-for /f "tokens=3 delims==, " %%G in ('%_qr%') do set OffVer=%%G
-call :offchk%OffVer%
 exit /b
 
 :offchk
@@ -1449,6 +1439,11 @@ echo Windows needs to rebuild the activation-related files.
 echo See KB2736303 for details.
 exit /b
 )
+if %ERRORCODE% EQU -1073422315 (
+echo Product Activation Failed: 0xC004E015
+echo Running slmgr.vbs /rilc to mitigate.
+cscript //Nologo //B %SysPath%\slmgr.vbs /rilc
+)
 if %ERRORCODE% NEQ 0 (
 if %sps% EQU SoftwareLicensingService (call :StopService sppsvc) else (call :StopService osppsvc)
 %_qr% %_Nul3%
@@ -1524,7 +1519,11 @@ for %%# in (SppExtComObjHookAvrf.dll,SppExtComObjHook.dll,SppExtComObjPatcher.dl
   if exist "%SysPath%\%%#" del /f /q "%SysPath%\%%#" %_Nul3%
   if exist "%SystemRoot%\SysWOW64\%%#" del /f /q "%SystemRoot%\SysWOW64\%%#" %_Nul3%
 )
+setlocal
+set "TMP=%SystemRoot%\Temp"
+set "TEMP=%SystemRoot%\Temp"
 %_Nul3% %_psc% "$d='%_dllPath%';$f=[IO.File]::ReadAllText('!_batp!') -split ':embdbin\:.*';iex ($f[1]);X %_dllNum%"
+endlocal
 if %Unattend% EQU 0 title %_title%
 if %_verb% EQU 1 (
 echo.
@@ -1569,6 +1568,7 @@ if %_verb% EQU 1 (
 if %Silent% EQU 0 if %_Debug% EQU 0 (
 mode con cols=100 lines=32
 %_Nul3% %_psc% "&%_buf%"
+if %Unattend% EQU 0 title %_title%
 )
 echo.&echo %line3%&echo.
 echo Uninstalling Local KMS Emulator...
@@ -1597,7 +1597,7 @@ for %%# in (SppExtComObj.exe,sppsvc.exe,osppsvc.exe) do reg query "%IFEO%\%%#" %
 if %OSType% EQU Win8 schtasks /query /tn "%_TaskEx%" %_Nul3% && (
 if %_verb% EQU 1 (
 echo.
-echo Removing Schedule Task...
+echo Removing Scheduled Task...
 echo %_TaskEx%
 )
 schtasks /delete /f /tn "%_TaskEx%" %_Nul3%
@@ -1816,8 +1816,8 @@ schtasks /query /tn "%_TaskEx%" %_Nul3% || (
 schtasks /query /tn "%_TaskEx%" %_Nul3% || (
 pushd %_temp%
 %_Nul3% %_psc% "$f=[IO.File]::ReadAllText('!_batp!') -split ':spptask\:.*'; [IO.File]::WriteAllText('SvcTrigger.xml',$f[1].Trim(),[System.Text.Encoding]::Unicode)"
-popd
 if %Unattend% EQU 0 title %_title%
+popd
 if exist "!_temp!\SvcTrigger.xml" (
   schtasks /create /tn "%_TaskEx%" /xml "!_temp!\SvcTrigger.xml" /f %_Nul3%
   del /f /q "!_temp!\SvcTrigger.xml" %_Nul3%
@@ -1825,7 +1825,7 @@ if exist "!_temp!\SvcTrigger.xml" (
 )
 schtasks /query /tn "%_TaskEx%" %_Nul3% && if %_verb% EQU 1 (
 echo.
-echo Adding Schedule Task...
+echo Adding Scheduled Task...
 echo %_TaskEx%
 )
 goto :eof
@@ -1834,8 +1834,8 @@ goto :eof
 if not exist "%PUBLIC%\ReadMeAIO.html" (
 pushd %PUBLIC%
 %_Nul3% %_psc% "$f=[IO.File]::ReadAllText('!_batp!') -split ':readme\:.*'; [IO.File]::WriteAllText('ReadMeAIO.html',$f[1].Trim(),[System.Text.Encoding]::UTF8)"
-popd
 if %Unattend% EQU 0 title %_title%
+popd
 )
 if exist "%PUBLIC%\ReadMeAIO.html" start "" "%PUBLIC%\ReadMeAIO.html"
 timeout /t 2 %_Nul3%
@@ -1873,7 +1873,7 @@ pause >nul
 goto :eof
 
 :C2RR2V
-set RunR2V=1
+set RanR2V=1
 set "_SLMGR=%SysPath%\slmgr.vbs"
 if %_Debug% EQU 0 (
 set "_cscript=cscript //Nologo //B"
@@ -2026,9 +2026,6 @@ goto :%_fC2R%
 )
 set _Identity=0
 set _vNext=0
-set sub_O365=0
-set sub_proj=0
-set sub_vis=0
 dir /b /s /a:-d "!_Local!\Microsoft\Office\Licenses\*1*" %_Nul3% && set _Identity=1
 dir /b /s /a:-d "!ProgramData!\Microsoft\Office\Licenses\*1*" %_Nul3% && set _Identity=1
 set kNext=HKCU\SOFTWARE\Microsoft\Office\16.0\Common\Licensing\LicensingNext
@@ -2070,14 +2067,27 @@ set xBit=x86
 )
 set _exeNum=4
 if %xBit%==x64 set _exeNum=5
-if %_Identity% EQU 0 if %_Retail% EQU 0 if %_OMSI% EQU 0 if defined _copp (
+set rancopp=0
+if %_Identity% EQU 0 if %_Retail% EQU 0 if %_OMSI% EQU 0 if defined _copp call :oppcln
+goto :oppchk
+
+:oppcln
+set rancopp=1
 pushd %_copp%
+setlocal
+set "TMP=%SystemRoot%\Temp"
+set "TEMP=%SystemRoot%\Temp"
 %_Nul3% %_psc% "$d='!cd!';$f=[IO.File]::ReadAllText('!_batp!') -split ':embdbin\:.*';iex ($f[1]);Y %_exeNum%"
+endlocal
+if %Unattend% EQU 0 title %_title%
+if exist cleanospp.exe (
 %_Nul3% cleanospp.exe -Licenses
 %_Nul3% del /f /q cleanospp.exe
-popd
-if %Unattend% EQU 0 title %_title%
 )
+popd
+exit /b
+
+:oppchk
 set _O16O365=0
 set _C16Msg=0
 set _C15Msg=0
@@ -2174,7 +2184,7 @@ find /i "Office16MondoVL_KMS_Client" "!_temp!\crvVolume.txt" %_Nul1% && (
 if %sub_O365% EQU 1 (
   for %%a in (%_Suites%) do set _%%a=0
 echo.
-echo Microsoft 365 product is activated with a subscription.
+echo Microsoft Office is activated with a subscription.
 )
 if %sub_proj% EQU 1 (
   for %%a in (%_PrjSKU%) do set _%%a=0
@@ -2545,6 +2555,9 @@ for /f "skip=2 tokens=2*" %%a in ('reg query %_Con15fig% %_Nul6%') do reg add %_
 exit /b
 
 :GVLKC2R
+set _CtRMsg=0
+if %_C16Msg% EQU 1 set _CtRMsg=1
+if %_C15Msg% EQU 1 set _CtRMsg=1
 if %_Office16% EQU 1 (
 for %%a in (%_RetIds%,ProPlus) do set "_%%a="
 )
@@ -2554,8 +2567,9 @@ for %%a in (%_R15Ids%,ProPlus) do set "_%%a="
 set "_qr=wmic path %_sps% where version='%_wmi%' call RefreshLicenseStatus"
 if %WMI_VBS% NEQ 0 set "_qr=%_csm% "%_sps%.Version='%_wmi%'" RefreshLicenseStatus"
 if %winbuild% GEQ 9200 %_qr% %_Nul3%
-if exist "%SysPath%\spp\store_test\2.0\tokens.dat" if defined _copp (
+if exist "%SysPath%\spp\store_test\2.0\tokens.dat" if %rancopp% EQU 1 if %_CtRMsg% EQU 1 (
 %_cscript% %_SLMGR% /rilc
+if !ERRORLEVEL! NEQ 0 %_cscript% %_SLMGR% /rilc
 )
 goto :%_sC2R%
 
@@ -2762,8 +2776,8 @@ set _Identity=0
 dir /b /s /a:-d "!_Local!\Microsoft\Office\Licenses\*1*" 1>nul 2>nul && set _Identity=1
 dir /b /s /a:-d "!ProgramData!\Microsoft\Office\Licenses\*1*" 1>nul 2>nul && set _Identity=1
 if %winbuild% LSS 9200 if not exist "%SystemRoot%\servicing\Packages\Microsoft-Windows-PowerShell-WTR-Package~*.mum" set _Identity=0
-set _pwrsh=1
-if not exist "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" set _pwrsh=0
+set _prsh=1
+for %%# in (powershell.exe) do @if "%%~$PATH:#"=="" set _prsh=0
 
 set OsppHook=1
 sc query osppsvc >nul 2>&1
@@ -2869,7 +2883,7 @@ set "LicenseMsg=Time remaining: %GracePeriodRemaining% minute(s) (%_gpr% day(s))
 if %_gpr% GEQ 1 if %_WSH% EQU 1 (
 for /f "tokens=* delims=" %%# in ('%_csx% %GracePeriodRemaining%') do set "_xpr=%%#"
 )
-if %_gpr% GEQ 1 if %_pwrsh% EQU 1 if not defined _xpr (
+if %_gpr% GEQ 1 if %_prsh% EQU 1 if not defined _xpr (
 for /f "tokens=* delims=" %%# in ('%_psc% "$([DateTime]::Now.addMinutes(%GracePeriodRemaining%)).ToString('yyyy-MM-dd HH:mm:ss')" 2^>nul') do set "_xpr=%%#"
 title Check Activation Status [wmi]
 )
@@ -2985,7 +2999,7 @@ if defined ExpireMsg echo.&echo.    %ExpireMsg%
 exit /b
 
 :casWend
-if %_Identity% EQU 1 if %_pwrsh% EQU 1 (
+if %_Identity% EQU 1 if %_prsh% EQU 1 (
 echo %line2%
 echo ***                  Office vNext Status                 ***
 echo %line2%
@@ -4822,8 +4836,8 @@ Add-Type -Language CSharp -TypeDefinition @"
       this is false-positive, as long as you download the file from the trusted Home Page.</li>
     </ul>
     <ul>
-      <li>wmic.exe tool is removed from Windows 11 build 22483 and later.
-      <div>In order to overcome this, KMS_VL_ALL v45 and later incorporate simple VBScripts to query and execute WMI functions.<br />
+      <li>wmic.exe tool is removed from Windows 11 starting build 22483, then added as optional feature starting build 22572.
+      <div>In case the tool is not available, KMS_VL_ALL v45 and later incorporate simple VBScripts to query and execute WMI functions.<br />
       <div>This require Windows Script Host to be working and <u>not disabled</u>.<br />
       <div>Furthermore, be advised, this may increase the ratio for marking the script(s) as a security threat.</div></li>
     </ul>
@@ -4882,7 +4896,7 @@ Add-Type -Language CSharp -TypeDefinition @"
       <li>Updates for Windows or Office do not affect or block KMS activation, only a new KMS protocol will not work with the local emulator.</li>
     </ul>
     <ul>
-      <li>The mechanism of <strong>SppExtComObjPatcher</strong> makes it act as a ready-on-request KMS server, providing instant activation without external schedule tasks or manual intervention.<br />
+      <li>The mechanism of <strong>SppExtComObjPatcher</strong> makes it act as a ready-on-request KMS server, providing instant activation without external scheduled tasks or manual intervention.<br />
       Including auto renewal, auto activation of volume Office afterward, reactivation because of hardware change, date change, windows or office edition change... etc.
       <div>On Windows 7, later installed Office may require initiating the first activation vis OSPP.vbs or the script, or opening Office program.</div></li>
     </ul>
@@ -4900,7 +4914,7 @@ Add-Type -Language CSharp -TypeDefinition @"
       <div>copy or link the file <code>"C:\Windows\System32\SppExtComObjHook.dll"</code><br />
       add the hook registry keys to <code>"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options"</code><br />
       add osppsvc.exe keys to <code>"HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform"</code><br />
-      create schedule task <code>"\Microsoft\Windows\SoftwareProtectionPlatform\SvcTrigger"</code> (on Windows 8 and later)</div></li>
+      create scheduled task <code>"\Microsoft\Windows\SoftwareProtectionPlatform\SvcTrigger"</code> (on Windows 8 and later)</div></li>
     </ul>
             <hr />
             <br />
@@ -5032,7 +5046,7 @@ Add-Type -Language CSharp -TypeDefinition @"
     <ul>
       <li>from the menu, press <b>1</b> to <strong>Activate [Auto Renewal Mode]</strong></li>
     </ul>
-    <p>On Windows 8 and later, the script <em>duplicate</em> inbox system schedule task <code>SvcRestartTaskLogon</code> to <code>SvcTrigger</code><br />
+    <p>On Windows 8 and later, the script <em>duplicate</em> inbox system scheduled task <code>SvcRestartTaskLogon</code> to <code>SvcTrigger</code><br />
     this is just a precaution step to insure that the auto renewal period is evaluated and respected, it's not directly related to activation itself, and you can manually remove it.</p>
     <p>To remove this mode:</p>
     <ul>
