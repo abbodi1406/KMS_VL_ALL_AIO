@@ -1,6 +1,6 @@
 <!-- : Begin batch script
 @setlocal DisableDelayedExpansion
-@set uivr=v46
+@set uivr=v47
 @echo off
 :: ### Configuration Options ###
 
@@ -21,7 +21,7 @@ set SkipKMS38=1
 
 :: change to 1 and set KMS_IP address to activate via external KMS server unattended
 set External=0
-set KMS_IP=0.0.0.0
+set KMS_IP=172.16.0.2
 
 :: change to 1 to run Manual activation mode unattended
 set uManual=0
@@ -67,7 +67,7 @@ set WMI_VBS=0
 
 set KMS_Emulation=1
 set Unattend=0
-set _uIP=0.0.0.0
+set _uIP=172.16.0.2
 
 set "_Null=1>nul 2>nul"
 
@@ -141,6 +141,8 @@ if /i "%PROCESSOR_ARCHITECTURE%"=="x86" if "%PROCESSOR_ARCHITEW6432%"=="" set "x
 if /i "%PROCESSOR_ARCHITEW6432%"=="amd64" set "xBit=x64"&set "xOS=x64"&set "_orig=%o_x64%"
 if /i "%PROCESSOR_ARCHITEW6432%"=="arm64" set "xBit=x86"&set "xOS=A64"&set "_orig=%o_arm%"
 
+reg query HKLM\SYSTEM\CurrentControlSet\Services\WinMgmt /v Start 2>nul | find /i "0x4" 1>nul && (goto :E_WMS)
+
 set _cwmi=0
 for %%# in (wmic.exe) do @if not "%%~$PATH:#"=="" (
 wmic path Win32_ComputerSystem get CreationClassName /value 2>nul | find /i "ComputerSystem" 1>nul && set _cwmi=1
@@ -149,6 +151,10 @@ set _pwsh=1
 for %%# in (powershell.exe) do @if "%%~$PATH:#"=="" set _pwsh=0
 if not exist "%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" set _pwsh=0
 if %_pwsh% equ 0 goto :E_PS
+
+set psfull=1
+2>nul %_psc% $ExecutionContext.SessionState.LanguageMode | find /i "Full" 1>nul || set psfull=0
+if %psfull% equ 0 goto :E_LM
 
 set _dllPath=%SystemRoot%\System32
 if %xOS%==A64 %_psc% $env:PROCESSOR_ARCHITECTURE 2>nul | find /i "x86" 1>nul && set _dllPath=%SystemRoot%\Sysnative
@@ -447,6 +453,7 @@ echo.
 echo                [8] Check Activation Status [vbs]
 echo                [9] Check Activation Status [wmi]
 echo                [S] Create $OEM$ Folder
+echo                [D] Decode Embedded Binary Files
 echo                [R] Read Me
 echo                [E] Activate [External Mode]
 echo           %line3%
@@ -454,11 +461,12 @@ echo.
 if %_NCS% EQU 0 (
 popd
 )
-choice /c 1234567890ERSX /n /m ">           Choose a menu option, or press 0 to Exit: "
+choice /c 1234567890EDRSX /n /m ">           Choose a menu option, or press 0 to Exit: "
 set _el=%errorlevel%
-if %_el%==14 if %winbuild% GEQ 10240 (if %SkipKMS38% EQU 0 (set SkipKMS38=1) else (set SkipKMS38=0))&goto :MainMenu
-if %_el%==13 (call :CreateOEM)&goto :MainMenu
-if %_el%==12 (call :CreateReadMe)&goto :MainMenu
+if %_el%==15 if %winbuild% GEQ 10240 (if %SkipKMS38% EQU 0 (set SkipKMS38=1) else (set SkipKMS38=0))&goto :MainMenu
+if %_el%==14 (call :CreateOEM)&goto :MainMenu
+if %_el%==13 (call :CreateReadMe)&goto :MainMenu
+if %_el%==12 (call :CreateBIN)&goto :MainMenu
 if %_el%==11 goto :E_IP
 if %_el%==10 (set _quit=1&goto :TheEnd)
 if %_el%==9 (call :casWm)&goto :MainMenu
@@ -629,7 +637,7 @@ IF %winbuild% LSS 14393 (
 )
 IF NOT "%EditionWMI%"=="" SET "EditionID=%EditionWMI%"
 IF /I "%EditionID%"=="IoTEnterprise" SET "EditionID=Enterprise"
-IF /I "%EditionID%"=="IoTEnterpriseS" SET "EditionID=EnterpriseS"
+IF /I "%EditionID%"=="IoTEnterpriseS" IF %winbuild% LSS 22610 SET "EditionID=EnterpriseS"
 IF /I "%EditionID%"=="ProfessionalSingleLanguage" SET "EditionID=Professional"
 IF /I "%EditionID%"=="ProfessionalCountrySpecific" SET "EditionID=Professional"
 IF /I "%EditionID%"=="EnterpriseG" SET Win10Gov=1
@@ -715,7 +723,7 @@ if %ActWindows% EQU 0 (
     echo.&echo %_winos% %nKMS%
     if defined _eval echo %nEval%
     ) else (
-    echo.&echo Failed checking KMS Activation ID^(s^) for Windows.&echo Either sppsvc service or SppExtComObjHook.dll is not functional.&echo See Read Me for troubleshooting.
+    echo.&echo Error: Failed checking KMS Activation ID^(s^) for Windows.&echo Either sppsvc service or SppExtComObjHook.dll is not functional.&call :CheckWS
     exit /b
     )
   )
@@ -1540,7 +1548,7 @@ if %SSppHook% NEQ 0 if not exist %w7inf% (
   echo [WTR]
   echo Name="KMS_VL_ALL"
   echo.
-  echo [WTR.W8]
+  echo [WTR.*]
   echo NotifyUser="No"
   echo.
   echo [System.Registry]
@@ -1633,7 +1641,7 @@ if %OsppHook% EQU 0 (
 reg delete "%IFEO%\%1" /f %_Null%
 )
 if %OsppHook% NEQ 0 for %%A in (Debugger,VerifierDlls,VerifierDebug,VerifierFlags,GlobalFlag,KMS_Emulation,KMS_ActivationInterval,KMS_RenewalInterval,Office2010,Office2013,Office2016,Office2019) do reg delete "%IFEO%\%1" /v %%A /f %_Null%
-reg add "HKLM\%OPPk%" /f /v KeyManagementServiceName /t REG_SZ /d "0.0.0.0" %_Nul3%
+reg add "HKLM\%OPPk%" /f /v KeyManagementServiceName /t REG_SZ /d "%_uIP%" %_Nul3%
 reg add "HKLM\%OPPk%" /f /v KeyManagementServicePort /t REG_SZ /d "1688" %_Nul3%
 goto :eof
 
@@ -1705,15 +1713,9 @@ echo.
 echo Verify that Antivirus protection is OFF or the registry path is excluded.
 )
 
-set E_WMI=0
-for /f "skip=2 tokens=2*" %%a in ('reg query HKLM\SYSTEM\CurrentControlSet\Services\WinMgmt /v Start %_Nul6%') do if /i %%b equ 0x4 set E_WMI=1
-set "_qr=%_zz1% Win32_ComputerSystem %_zz3% CreationClassName %_zz4%"
-%_qr% %_Nul2% | find /i "computersystem" %_Nul1%
-if %errorlevel% NEQ 0 set E_WMI=1
-set "_qr=%_zz1% SoftwareLicensingService %_zz3% Version %_zz4%"
-%_qr% %_Nul2% | find /i "." %_Nul1%
-if %errorlevel% NEQ 0 set E_WMI=1
-if %E_WMI% EQU 1 (
+set WMIe=0
+call :CheckWS
+if %WMIe% EQU 1 (
 echo.
 echo %_err%
 echo Failed running WMI query check.
@@ -1722,25 +1724,38 @@ echo Verify that these services are working correctly:
 echo Windows Management Instrumentation [WinMgmt]
 echo Software Protection [sppsvc]
 )
+goto :eof
 
+:CheckWS
+set "_qrw=%_zz1% Win32_ComputerSystem %_zz3% CreationClassName %_zz4%"
+set "_qrs=%_zz1% SoftwareLicensingService %_zz3% Version %_zz4%"
+
+%_qrs% %_Nul2% | findstr /r "[0-9]*\.[0-9]*\.[0-9]*\.[0-9]*" %_Nul1% || (
+  set WMIe=1
+  %_qrw% %_Nul2% | find /i "ComputerSystem" %_Nul1% && (
+    echo Error: SPP is not responding
+    ) || (
+    echo Error: WMI ^& SPP are not responding
+  )
+)
 goto :eof
 
 :cREG
-reg add "HKLM\%SPPk%" /f /v KeyManagementServiceName /t REG_SZ /d "0.0.0.0"
+reg add "HKLM\%SPPk%" /f /v KeyManagementServiceName /t REG_SZ /d "%_uIP%"
 reg add "HKLM\%SPPk%" /f /v KeyManagementServicePort /t REG_SZ /d "1688"
 reg delete "HKLM\%SPPk%" /f /v DisableDnsPublishing
 reg delete "HKLM\%SPPk%" /f /v DisableKeyManagementServiceHostCaching
 reg delete "HKLM\%SPPk%\%_wApp%" /f
 if %winbuild% GEQ 9200 (
 if not %xOS%==x86 (
-reg add "HKLM\%SPPk%" /f /v KeyManagementServiceName /t REG_SZ /d "0.0.0.0" /reg:32
+reg add "HKLM\%SPPk%" /f /v KeyManagementServiceName /t REG_SZ /d "%_uIP%" /reg:32
 reg add "HKLM\%SPPk%" /f /v KeyManagementServicePort /t REG_SZ /d "1688" /reg:32
 reg delete "HKLM\%SPPk%\%_oApp%" /f /reg:32
-reg add "HKLM\%SPPk%\%_oApp%" /f /v KeyManagementServiceName /t REG_SZ /d "0.0.0.0" /reg:32
+reg add "HKLM\%SPPk%\%_oApp%" /f /v KeyManagementServiceName /t REG_SZ /d "%_uIP%" /reg:32
 reg add "HKLM\%SPPk%\%_oApp%" /f /v KeyManagementServicePort /t REG_SZ /d "1688" /reg:32
 )
 reg delete "HKLM\%SPPk%\%_oApp%" /f
-reg add "HKLM\%SPPk%\%_oApp%" /f /v KeyManagementServiceName /t REG_SZ /d "0.0.0.0"
+reg add "HKLM\%SPPk%\%_oApp%" /f /v KeyManagementServiceName /t REG_SZ /d "%_uIP%"
 reg add "HKLM\%SPPk%\%_oApp%" /f /v KeyManagementServicePort /t REG_SZ /d "1688"
 )
 if %winbuild% GEQ 9600 (
@@ -1750,7 +1765,7 @@ reg delete "HKU\S-1-5-20\%SPPk%\%_oApp%" /f
 if %OsppHook% EQU 0 (
 goto :eof
 )
-reg add "HKLM\%OPPk%" /f /v KeyManagementServiceName /t REG_SZ /d "0.0.0.0"
+reg add "HKLM\%OPPk%" /f /v KeyManagementServiceName /t REG_SZ /d "%_uIP%"
 reg delete "HKLM\%OPPk%" /f /v KeyManagementServicePort
 reg delete "HKLM\%OPPk%" /f /v DisableDnsPublishing
 reg delete "HKLM\%OPPk%" /f /v DisableKeyManagementServiceHostCaching
@@ -1872,6 +1887,43 @@ echo Press any key to continue...
 pause >nul
 goto :eof
 
+:CreateBIN
+cls
+if exist "!_oem!\KMS_VL_ALL_AIO-bin\*.dll" if exist "!_oem!\KMS_VL_ALL_AIO-bin\*.cab" (
+echo.&echo %line3%&echo.
+echo Binaries Folder already exist...
+echo "!_oem!\KMS_VL_ALL_AIO-bin"
+echo.
+echo Manually remove it if you wish to create a fresh copy.
+echo.&echo %line3%&echo.
+echo Press any key to continue...
+pause >nul
+goto :eof
+)
+if not exist "!_oem!\KMS_VL_ALL_AIO-bin\*.dll" mkdir "!_oem!\KMS_VL_ALL_AIO-bin"
+pushd "!_oem!\KMS_VL_ALL_AIO-bin"
+%_Nul3% rmdir /s /q .
+setlocal
+set "TMP=%SystemRoot%\Temp"
+set "TEMP=%SystemRoot%\Temp"
+%_Nul3% %_psc% "cd -Lit($env:__CD__); $f=[IO.File]::ReadAllText('!_batp!') -split ':embdbin\:.*'; iex($f[1]); 2..6|%%{[BAT85]::Decode($_, $f[$_])}"
+endlocal
+%_Nul3% ren 2 SppExtComObjHook-x86.dll
+%_Nul3% ren 3 SppExtComObjHook-x64.dll
+%_Nul3% ren 4 SppExtComObjHook-arm64.dll
+%_Nul3% ren 5 cleanospp-x86.cab
+%_Nul3% ren 6 cleanospp-x64.cab
+popd
+echo.&echo %line3%&echo.
+echo Binaries Folder Created...
+echo.
+echo "!_oem!\KMS_VL_ALL_AIO-bin"
+echo.&echo %line3%&echo.
+echo.
+echo Press any key to continue...
+pause >nul
+goto :eof
+
 :C2RR2V
 set RanR2V=1
 set "_SLMGR=%SysPath%\slmgr.vbs"
@@ -1887,6 +1939,7 @@ set error1=%errorlevel%
 sc query OfficeSvc %_Nul3%
 set error2=%errorlevel%
 if %error1% EQU 1060 if %error2% EQU 1060 (
+echo Error: Office C2R service is not detected
 goto :%_fC2R%
 )
 set _Office16=0
@@ -1904,6 +1957,7 @@ for /f "skip=2 tokens=2*" %%a in ('"reg query HKLM\SOFTWARE\WOW6432Node\Microsof
   set _Office15=1
 )
 if %_Office16% EQU 0 if %_Office15% EQU 0 (
+echo Error: Office C2R InstallPath is not detected
 goto :%_fC2R%
 )
 
@@ -1933,13 +1987,13 @@ set "_LicensesPath=%_InstallRoot%\Licenses16"
 set "_Integrator=%_InstallRoot%\integration\integrator.exe"
 for /f "skip=2 tokens=2*" %%a in ('"reg query %_PRIDs% /v ActiveConfiguration" %_Nul6%') do set "_PRIDs=%_PRIDs%\%%b"
 if "%_ProductIds%"=="" (
-if %_Office15% EQU 0 (goto :%_fC2R%) else (goto :Reg15istry)
+if %_Office15% EQU 0 (echo Error: Office C2R ProductIDs are not detected&goto :%_fC2R%) else (goto :Reg15istry)
 )
 if not exist "%_LicensesPath%\ProPlus*.xrm-ms" (
-if %_Office15% EQU 0 (goto :%_fC2R%) else (goto :Reg15istry)
+if %_Office15% EQU 0 (echo Error: Office C2R Licenses files are not detected&goto :%_fC2R%) else (goto :Reg15istry)
 )
 if not exist "%_Integrator%" (
-if %_Office15% EQU 0 (goto :%_fC2R%) else (goto :Reg15istry)
+if %_Office15% EQU 0 (echo Error: Office C2R Licenses Integrator is not detected&goto :%_fC2R%) else (goto :Reg15istry)
 )
 if exist "%_LicensesPath%\Word2019VL_KMS_Client_AE*.xrm-ms" (set "_tag=2019"&set "_ons= 2019")
 if exist "%_LicensesPath%\Word2021VL_KMS_Client_AE*.xrm-ms" (set _LTSC=1)
@@ -1990,13 +2044,13 @@ if exist "%ProgramFiles%\Microsoft Office\Office15\OSPP.VBS" (
   set "_OSPP15VBS=%ProgramFiles(x86)%\Microsoft Office\Office15\OSPP.VBS"
 )
 if "%_Product15Ids%"=="" (
-if %_Office16% EQU 0 (goto :%_fC2R%) else (goto :CheckC2R)
+if %_Office16% EQU 0 (echo Error: Office 2013 C2R ProductIDs are not detected&goto :%_fC2R%) else (goto :CheckC2R)
 )
 if not exist "%_Licenses15Path%\ProPlus*.xrm-ms" (
-if %_Office16% EQU 0 (goto :%_fC2R%) else (goto :CheckC2R)
+if %_Office16% EQU 0 (echo Error: Office 2013 C2R Licenses files are not detected&goto :%_fC2R%) else (goto :CheckC2R)
 )
 if %winbuild% LSS 9200 if not exist "%_OSPP15VBS%" (
-if %_Office16% EQU 0 (goto :%_fC2R%) else (goto :CheckC2R)
+if %_Office16% EQU 0 (echo Error: Office 2013 C2R Licensing tool OSPP.vbs is not detected&goto :%_fC2R%) else (goto :CheckC2R)
 )
 
 :CheckC2R
@@ -2022,6 +2076,8 @@ set "_wmi="
 set "_qr=%_zz7% %_sps% %_zz3% Version %_zz8%"
 for /f "tokens=2 delims==" %%# in ('%_qr%') do set _wmi=%%#
 if "%_wmi%"=="" (
+echo Error: %_sps% WMI version is not detected
+call :CheckWS
 goto :%_fC2R%
 )
 set _Identity=0
@@ -3190,6 +3246,11 @@ PrintLicensesInformation -Mode "Device"
 if "%~1"=="" exit /b
 goto :%1 %_Nul2%
 
+:: Windows 11 [Ni]
+:59eb965c-9150-42b7-a0ec-22151b9897c5
+set "_key=KBN8V-HFGQ4-MGXVD-347P6-PDQGT" &:: IoT Enterprise LTSC
+exit /b
+
 :: Windows 11 [Co]
 :ca7df2e3-5ea0-47b8-9ac1-b1be4d8edd69
 set "_key=37D7F-N49CB-WQR8W-TBJ73-FM8RX" &:: SE {Cloud}
@@ -3986,6 +4047,23 @@ Add-Type -Language CSharp -TypeDefinition @"
  n += 84 * p85[p+i]; } ms.Write(n4b(), 0, p-1); } File.WriteAllBytes(tmp, ms.ToArray()); ms.SetLength(0); }
  private static byte[] n4b(){ return new byte[4]{(byte)(n>>24),(byte)(n>>16),(byte)(n>>8),(byte)n}; } private static long n=0; }
 "@; function X([int]$r=1){ [BAT85]::Decode($d+"\\SppExtComObjHook.dll", $f[$r+1]) }; function Y([int]$r=1){ $tmp="$r._"; [BAT85]::Decode($tmp, $f[$r+1]); expand $d\$tmp -F:* -R; del $tmp -force }
+
+<#
+:: 1st Block (above):
+:: Powershell code which decode the embedded files
+:: https://github.com/AveYo/Compressed2TXT
+::
+:: 2nd Block:
+:: SppExtComObjHook-x86.dll   SHA-1: da8f931c7f3bc6643e20063e075cd8fa044b53ae
+:: 3rd Block:
+:: SppExtComObjHook-x64.dll   SHA-1: 684103f5c312ae956e66a02b965d9aad59710745
+:: 4th Block:
+:: SppExtComObjHook-arm64.dll SHA-1: 1139ae6243934ca621e6d4ed2e2f34cc130ef88a
+:: 5th Block:
+:: cleanospp-x86.cab      SHA-1 cab: 77a936d8986fd46e098afe583fd2ebfb6af25031 / EXE: 39ed8659e7ca16aaccb86def94ce6cec4c847dd6
+:: 6th Block:
+:: cleanospp-x64.cab      SHA-1 cab: 2ead12fea8eaf8f0d71bbcc06db84c7ba1879ca3 / EXE: d30a0e4e5911d3ca705617d17225372731c770e2
+#>
 
 :embdbin:
 ::O;Iru0{{R31ONa4|Nj60xBvhE00000KmY($0000000000000000000000000000000000000000$N(HU4j/M?0JI6sA.Dld&]^51X?&ZOa(KpHVQnB|VQy}3bRc47
@@ -4922,8 +5000,10 @@ Add-Type -Language CSharp -TypeDefinition @"
             <h2 id="Supported">Supported Products</h2>
     <p>Volume-capable:</p>
     <ul>
-      <li>Windows 10/11:<br />
-      Enterprise, Enterprise LTSC/LTSB, Enterprise G, Enterprise multi-session, Enterprise, Education, Pro, Pro Workstation, Pro Education, Home, Home Single Language, Home China</li><br />
+      <li>Windows 11:<br />
+      Enterprise, Enterprise LTSC, IoT Enterprise LTSC, Enterprise G, Enterprise multi-session, SE (CloudEdition), Education, Pro, Pro Workstation, Pro Education, Home, Home Single Language, Home China</li><br />
+      <li>Windows 10:<br />
+      Enterprise, Enterprise LTSC/LTSB, Enterprise G, Enterprise multi-session, Education, Pro, Pro Workstation, Pro Education, Home, Home Single Language, Home China</li><br />
       <li>Windows 8.1:<br />
       Enterprise, Pro, Pro with Media Center, Core, Core Single Language, Core China, Pro for Students, Bing, Bing Single Language, Bing China, Embedded Industry Enterprise/Pro/Automotive</li><br />
       <li>Windows 8:<br />
@@ -4972,7 +5052,7 @@ Add-Type -Language CSharp -TypeDefinition @"
     <ul>
       <li>Office Click-to-Run builds (since February 2021) that are activated with KMS checks the existence of the KMS server name in the registry.</li>
       <li>If KMS server is not present, a banner is shown in Office programs notifying that "Office isn't licensed properly", see <a href="https://i.imgur.com/gLFxssD.png" target="_blank">here</a>.</li>
-      <li>Therefore in manual mode, <code>KeyManagementServiceName</code> value containing a non-existent IP address <strong>0.0.0.0</strong> will be kept in the below registry keys:
+      <li>Therefore in manual mode, <code>KeyManagementServiceName</code> value containing an internal private-network IP address <strong>172.16.0.2</strong> will be kept in the below registry keys:
       <div><code>HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform</code><br />
       <code>HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows NT\CurrentVersion\SoftwareProtectionPlatform</code></div></li>
       <li>This is perfectly fine to keep, and it does not affect Windows or Office activation.</li>
@@ -5511,9 +5591,31 @@ if %Unattend% EQU 1 goto :eof
 pause >nul
 goto :eof
 
+:E_LM
+echo %_err%
+echo Windows PowerShell is not properly responding.
+echo check if it is working, and not locked in Constrained Language Mode.
+echo.
+echo Press any key to exit.
+if %_Debug% EQU 1 goto :eof
+if %Unattend% EQU 1 goto :eof
+pause >nul
+goto :eof
+
 :E_VBS
 echo %_err%
 echo Windows Script Host is disabled.
+echo It is required for this script to work.
+echo.
+echo Press any key to exit.
+if %_Debug% EQU 1 goto :eof
+if %Unattend% EQU 1 goto :eof
+pause >nul
+goto :eof
+
+:E_WMS
+echo %_err%
+echo Windows Management Instrumentation [WinMgmt] service is disabled.
 echo It is required for this script to work.
 echo.
 echo Press any key to exit.
