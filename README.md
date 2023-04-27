@@ -58,12 +58,17 @@ The list of unsupported products:
 
 <h2 id="use">How to use </h2>
 
-### Activation Method
+### Activation Methods
 
 Within this script, there are 3 activation methods:
 - Manual: The activation script is executed and leaves no traves of KMS emulator on the system. This method does not reactivate products once they expire after the 180 days duration.
 - Auto-Renewal: This is the **recommended** mode. This method installs a dll file that will automatically renew the license every 180 days. Newly installed Volume Office Products will be auto activated with this mode, although if you want to convert and activate Office C2R, renewing activation or activating new product, you will need to run ```Activate [Auto Renewal Mode]``` from the script menu again.
 - External Mode: Standalone mode, where you activate against trusted external KMS server, without using the local KMS emulator. The external server can be an web address, or IP address.
+
+To switch to Auto Renewal Mode, press <kbd>2</kbd> in the activation script to install the dll file.
+To switch turn off Auto Renewal Mode, press <kbd>3</kbd>.
+
+**Uninstall Completely** removes the auto renewal dll, leftover from a prematurely terminated script, clears the External mode server registration and traces, clears KMS cache, as well as OEM folder project.
 
 ### Configuration Mode
 
