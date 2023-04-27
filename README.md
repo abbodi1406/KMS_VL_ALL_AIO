@@ -6,7 +6,8 @@
 |[Introduction](#introduction)       |
 |[Supported Products](#supported)    |
 |[Unsupported Products](#unsupported)|
-|[How to Use](#howtouse)             |
+|[How to Install](#install)          |
+|[How to Use](#use)                  |
 
 <h2 id="introduction">Smart Activation Script</h2>
 
@@ -41,10 +42,18 @@ The list of unsupported products:
 - Office MSI Retail 2010, 2013 & Office 2010 C2R Retail
 - Office UWP Universal Windows Platform (Windows 10/11 Apps)
 - Windows Evaluation Editions
-- Windows 7
+- Windows 7 (Starter, HomBasic, HomePremium, Ultimate)
+- Windows 10 (Cloud "S", IoT Enterprise, IoS EnterpriseS, Professional SingleLanguage, Professional China, etc.)
+- Windows 11 (IoT Enterprise, Professional SingleLanguage, Professional China, etc.)
+- Windows Server (Azure Stack HCL, Server Foundation, Storage Server, Home Server 2011, etc.)
 
-<h2 id="howtouse">How to use</h2>
+<h2 id="install">How to install</h2>
 
+*Before using, make sure any other KMS solutions are removed from the system first.*
 
+- Download the latest activation script from the release page
+- Extract the KMS_VL_ALL_AIO-xx.cmd with the password being whatever year that release is from. For example: Version 49 was released in 2023, the password is ```2023```
+- [Disable Windows Defender](https://youtu.be/UKu6qtc534A) or allow KMS_VL_ALL_AIO.cmd on the device
+- Run the KMS_VL_ALL_AIO.cmd script and follow the instructions.
 
 [![Release downloads](https://img.shields.io/github/downloads/abbodi1406/KMS_VL_ALL_AIO/total.svg)](https://GitHub.com/abbodi1406/KMS_VL_ALL_AIO/releases/)
