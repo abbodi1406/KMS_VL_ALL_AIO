@@ -1,6 +1,6 @@
 <!-- : Begin batch script
 @setlocal DisableDelayedExpansion
-@set uivr=v49
+@set uivr=v50
 @echo off
 :: ### Configuration Options ###
 
@@ -197,8 +197,13 @@ set "_temp=%SystemRoot%\Temp"
 set "_log=%~dpn0"
 set "_work=%~dp0"
 if "%_work:~-1%"=="\" set "_work=%_work:~0,-1%"
-set _UNC=0
-if "%_work:~0,2%"=="\\" set _UNC=1
+:: set _UNC=0
+:: if "%_work:~0,2%"=="\\" (
+:: set _UNC=1
+:: ) else (
+:: net use %~d0 %_Null%
+:: if not errorlevel 1 set _UNC=1
+:: )
 for /f "skip=2 tokens=2*" %%a in ('reg query "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" /v Desktop') do call set "_dsk=%%b"
 if exist "%PUBLIC%\Desktop\desktop.ini" set "_dsk=%PUBLIC%\Desktop"
 set "_mO21a=Detected Office 2021 C2R Retail is activated"
@@ -2714,6 +2719,7 @@ if %_C16Msg% EQU 1 set _CtRMsg=1
 if %_C15Msg% EQU 1 set _CtRMsg=1
 if %_Office16% EQU 1 (
 for %%a in (%_RetIds%,ProPlus) do set "_%%a="
+for %%A in (19,21) do call :officeLoc %%A
 )
 if %_Office15% EQU 1 (
 for %%a in (%_R15Ids%,ProPlus) do set "_%%a="
@@ -4163,7 +4169,7 @@ Add-Type -Language CSharp -TypeDefinition @"
 :: 4th Block:
 :: SppExtComObjHook-arm64.dll SHA-1: 1139ae6243934ca621e6d4ed2e2f34cc130ef88a
 :: 5th Block:
-:: CleanOffice.ps1            SHA-1: e34083950878395df4e3101da19b4ad3248c943b
+:: CleanOffice.ps1            SHA-1: eb20e53561980734f678894d29f8ff0783ff769a
 #>
 
 :embdbin:
@@ -4735,52 +4741,31 @@ Add-Type -Language CSharp -TypeDefinition @"
 ::0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 :embdbin:
 function UninstallLicenses($DllPath) {
-    $DynAssembly = New-Object System.Reflection.AssemblyName('Win32Lib')
-    $AssemblyBuilder = [AppDomain]::CurrentDomain.DefineDynamicAssembly($DynAssembly, [Reflection.Emit.AssemblyBuilderAccess]::Run)
-    $ModuleBuilder = $AssemblyBuilder.DefineDynamicModule('Win32Lib', $False)
-    $TypeBuilder = $ModuleBuilder.DefineType('sppc', 'Public, Class')
-    $DllImportConstructor = [Runtime.InteropServices.DllImportAttribute].GetConstructor(@([String]))
-    $FieldArray = [Reflection.FieldInfo[]] @([Runtime.InteropServices.DllImportAttribute].GetField('EntryPoint'))
+    $TB = [AppDomain]::CurrentDomain.DefineDynamicAssembly(4, 1).DefineDynamicModule(2).DefineType(0)
+    
+    [void]$TB.DefinePInvokeMethod('SLOpen', $DllPath, 22, 1, [int], @([IntPtr].MakeByRefType()), 1, 3)
+    [void]$TB.DefinePInvokeMethod('SLGetSLIDList', $DllPath, 22, 1, [int],
+        @([IntPtr], [int], [Guid].MakeByRefType(), [int], [int].MakeByRefType(), [IntPtr].MakeByRefType()), 1, 3).SetImplementationFlags(128)
+    [void]$TB.DefinePInvokeMethod('SLUninstallLicense', $DllPath, 22, 1, [int], @([IntPtr], [IntPtr]), 1, 3)
 
-    $Open = $TypeBuilder.DefineMethod('SLOpen', [Reflection.MethodAttributes] 'Public, Static', [int], @([IntPtr].MakeByRefType()))
-    $Open.SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder(
-                $DllImportConstructor,
-                @($DllPath),
-                $FieldArray,
-                @('SLOpen'))))
-
-    $GetSLIDList = $TypeBuilder.DefineMethod('SLGetSLIDList', [Reflection.MethodAttributes] 'Public, Static', [int], @([IntPtr], [int], [guid].MakeByRefType(), [int], [int].MakeByRefType(), [IntPtr].MakeByRefType()))
-    $GetSLIDList.SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder(
-                $DllImportConstructor,
-                @($DllPath),
-                $FieldArray,
-                @('SLGetSLIDList'))))
-
-    $UninstallLicense = $TypeBuilder.DefineMethod('SLUninstallLicense', [Reflection.MethodAttributes] 'Public, Static', [int], @([IntPtr], [IntPtr]))
-    $UninstallLicense.SetCustomAttribute((New-Object Reflection.Emit.CustomAttributeBuilder(
-                $DllImportConstructor,
-                @($DllPath),
-                $FieldArray,
-                @('SLUninstallLicense'))))
-
-    $SPPC = $TypeBuilder.CreateType()
-    $Handle = [IntPtr]::Zero
-    $SPPC::SLOpen([ref]$handle) | Out-Null
+    $SPPC = $TB.CreateType()
+    $Handle = 0
+    [void]$SPPC::SLOpen([ref]$Handle)
     $pnReturnIds = 0
-    $ppReturnIds = [IntPtr]::Zero
+    $ppReturnIds = 0
 
-    if (!$SPPC::SLGetSLIDList($handle, 0, [ref][guid]"0ff1ce15-a989-479d-af46-f275c6370663", 6, [ref]$pnReturnIds, [ref]$ppReturnIds)) {
+    if (!$SPPC::SLGetSLIDList($Handle, 0, [ref][Guid]"0ff1ce15-a989-479d-af46-f275c6370663", 6, [ref]$pnReturnIds, [ref]$ppReturnIds)) {
         foreach ($i in 0..($pnReturnIds - 1)) {
-            $SPPC::SLUninstallLicense($handle, [System.Int64]$ppReturnIds + [System.Int64]16 * $i) | Out-Null
+            [void]$SPPC::SLUninstallLicense($Handle, [Int64]$ppReturnIds + [Int64]16 * $i)
         }    
     }
 }
 
 $OSPP = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\OfficeSoftwareProtectionPlatform" -ErrorAction SilentlyContinue).Path
 if ($OSPP) {
-    UninstallLicenses($OSPP + "osppc.dll")
+    UninstallLicenses ($OSPP + "osppc.dll")
 }
-UninstallLicenses("sppc.dll")
+UninstallLicenses "sppc.dll"
 :embdbin:
 
 :spptask:
@@ -4981,7 +4966,7 @@ UninstallLicenses("sppc.dll")
       <li>Windows 11:<br />
       Enterprise, Enterprise LTSC, IoT Enterprise LTSC, Enterprise G, SE (CloudEdition), Education, Pro, Pro Workstation, Pro Education, Home, Home Single Language, Home China</li><br />
       <li>Windows 10:<br />
-      Enterprise, Enterprise LTSC/LTSB, Enterprise G, Education, Pro, Pro Workstation, Pro Education, Home, Home Single Language, Home China</li><br />
+      Enterprise, Enterprise LTSC/LTSB, IoT Enterprise LTSC 2021, Enterprise G, Education, Pro, Pro Workstation, Pro Education, Home, Home Single Language, Home China</li><br />
       <li>Windows 8.1:<br />
       Enterprise, Pro, Pro with Media Center, Core, Core Single Language, Core China, Pro for Students, Bing, Bing Single Language, Bing China, Embedded Industry Enterprise/Pro/Automotive</li><br />
       <li>Windows 8:<br />
