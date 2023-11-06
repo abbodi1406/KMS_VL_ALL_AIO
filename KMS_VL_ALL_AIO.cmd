@@ -3863,6 +3863,19 @@ exit /b
 set "_key=736RG-XDKJK-V34PF-BHK87-J6X3K" &:: MultiPoint Server - ServerEmbeddedSolution
 exit /b
 
+:: Office 2024
+:fceda083-1203-402a-8ec4-3d7ed9f3648c
+set "_key=2TDPW-NDQ7G-FMG99-DXQ7M-TX3T2" &:: Pro Plus Preview
+exit /b
+
+:aaea0dc8-78e1-4343-9f25-b69b83dd1bce
+set "_key=D9GTG-NP7DV-T6JP3-B6B62-JB89R" &:: Project Pro Preview
+exit /b
+
+:4ab4d849-aabc-43fb-87ee-3aed02518891
+set "_key=YW66X-NH62M-G6YFP-B7KCT-WXGKQ" &:: Visio Pro Preview
+exit /b
+
 :: Office 2021
 :fbdb3e18-a8ef-4fb3-9183-dffd60bd0984
 set "_key=FXYTK-NJJ8C-GB6DW-3DYQT-6F7TH" &:: Professional Plus
